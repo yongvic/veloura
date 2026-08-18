@@ -11,3 +11,5 @@ dist
 .vercel
 public/uploads/*
 !public/uploads/.gitkeep
+.env*
+skills-lock.json

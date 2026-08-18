@@ -25,6 +25,16 @@ export function WishCard({
   const isGifted = wish.status === "GIFTED";
   const isReserved = wish.status === "RESERVED";
 
+  async function reserveWishAction(formData: FormData) {
+    "use server";
+    await reserveWish(formData);
+  }
+
+  async function markGiftedAction(formData: FormData) {
+    "use server";
+    await markGifted(formData);
+  }
+
   return (
     <article className={`wish-card ${compact ? "wish-card--compact" : ""}`}>
       <div className="wish-card__media">
@@ -81,7 +91,7 @@ export function WishCard({
           {!isGifted ? (
             <div className="wish-card__forms">
               {!isReserved ? (
-                <form action={reserveWish}>
+                <form action={reserveWishAction}>
                   <input type="hidden" name="wishId" value={wish.id} />
                   <button className="button button--secondary" disabled={demoMode}>
                     Reserver en discret
@@ -91,7 +101,7 @@ export function WishCard({
                 <p className="reserved-copy">Mode discret actif{wish.reservedByName ? ` par ${wish.reservedByName}` : ""}.</p>
               )}
 
-              <form action={markGifted} className="gift-form">
+              <form action={markGiftedAction} className="gift-form">
                 <input type="hidden" name="wishId" value={wish.id} />
                 <input type="hidden" name="reaction" value="A adore" />
                 <button className="button" disabled={demoMode}>
