@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  RECIPIENT
+  GIFTER
+}
+
+enum WishPriority {
+  MUST_HAVE
+  WOULD_LOVE
+  MAYBE_LATER
+  LUXURY
+}
+
+enum WishStatus {
+  ACTIVE
+  RESERVED
+  GIFTED
+}
+
+model User {
+  id           String             @id @default(cuid())
+  name         String
+  email        String             @unique
+  role         UserRole
+  wishes       Wish[]             @relation("RecipientWishes")
+  reservedWish Wish[]             @relation("ReservedWishes")
+  profile      PreferenceProfile?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+model Wish {
+  id               String        @id @default(cuid())
+  title            String
+  description      String?
+  imageUrl         String?
+  imageBlobPath    String?
+  productUrl       String?
+  priceFcfa        Int?
+  category         String
+  priority         WishPriority  @default(WOULD_LOVE)
+  status           WishStatus    @default(ACTIVE)
+  recipientId      String
+  recipient        User          @relation("RecipientWishes", fields: [recipientId], references: [id], onDelete: Cascade)
+  occasionId       String?
+  occasion         Occasion?     @relation(fields: [occasionId], references: [id], onDelete: SetNull)
+  reservedById     String?
+  reservedBy       User?         @relation("ReservedWishes", fields: [reservedById], references: [id], onDelete: SetNull)
+  giftedAt         DateTime?
+  giftHistory      GiftHistory?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([recipientId, status])
+  @@index([occasionId])
+}
+
+model Occasion {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  eventDate   DateTime?
+  description String?
+  wishes      Wish[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model GiftHistory {
+  id         String   @id @default(cuid())
+  wishId      String   @unique
+  wish        Wish     @relation(fields: [wishId], references: [id], onDelete: Cascade)
+  note        String?
+  reaction    String?
+  giftedAt    DateTime
+  createdAt   DateTime @default(now())
+}
+
+model PreferenceProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favoriteColors  String[]
+  favoriteBrands  String[]
+  favoriteStyles  String[]
+  sizes           String[]
+  avoidNotes      String[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
