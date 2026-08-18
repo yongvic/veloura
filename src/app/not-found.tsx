@@ -1,25 +1,34 @@
 import Link from "next/link";
-
 import { AppShell } from "@/components/app-shell";
+import { IconArrowLeft, IconGift, IconSparkle } from "@/components/icons";
+import { StatusPill } from "@/components/status-pill";
 
 export default function NotFound() {
   return (
     <AppShell activePath="/wishes">
-      <section className="page-hero shell-panel">
-        <p className="eyebrow">Introuvable</p>
-        <h2>Cette envie est introuvable, ou elle a deja quitte la liste.</h2>
-        <p className="section-copy">
-          Reviens a la wishlist pour retrouver les idees actives, les cadeaux reserves et les souvenirs deja offerts.
+      <div className="not-found-container shell-panel">
+        <StatusPill tone="gold" icon={<IconSparkle size={13} />}>
+          Page introuvable
+        </StatusPill>
+        <h1 className="not-found-title">
+          Cette envie ou cette page est introuvable.
+        </h1>
+        <p className="not-found-desc">
+          L'élément recherché n'existe plus ou a été déplacé. Pas d'inquiétude,
+          toutes les autres envies et souvenirs sont bien conservés dans votre écrin.
         </p>
-        <div className="budget-pills">
-          <Link href="/wishes" className="button">
-            Retour aux envies
+
+        <div className="not-found-actions">
+          <Link href="/wishes" className="btn-primary">
+            <IconGift size={16} />
+            <span>Retour aux envies</span>
           </Link>
-          <Link href="/" className="button button--secondary">
-            Ouvrir le dashboard
+          <Link href="/" className="btn-secondary">
+            <IconArrowLeft size={16} />
+            <span>Revenir à l'accueil</span>
           </Link>
         </div>
-      </section>
+      </div>
     </AppShell>
   );
 }

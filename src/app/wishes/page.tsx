@@ -1,57 +1,40 @@
 import { AppShell } from "@/components/app-shell";
+import { IconGift, IconSparkle } from "@/components/icons";
 import { SectionHeading } from "@/components/section-heading";
 import { StatusPill } from "@/components/status-pill";
-import { WishCard } from "@/components/wish-card";
 import { WishComposer } from "@/components/wish-composer";
+import { WishExplorer } from "@/components/wish-explorer";
 import { getDashboardData } from "@/lib/data";
 
 export default async function WishesPage() {
   const data = await getDashboardData();
+  const allWishes = [...data.activeWishes, ...data.reservedWishes, ...data.giftedWishes];
 
   return (
-    <AppShell activePath="/wishes">
-      <section className="page-hero shell-panel">
-        <SectionHeading
-          kicker="Envies"
-          title="Toutes les idees cadeau, triees pour agir vite."
-          body="Retrouve les envies prioritaires, les demandes plus souples et les cadeaux deja reserves."
-          aside={
-            <div className="budget-pills">
-              <StatusPill>moins de 10 000 FCFA</StatusPill>
-              <StatusPill>10 000 - 25 000 FCFA</StatusPill>
-              <StatusPill>25 000 - 50 000 FCFA</StatusPill>
-            </div>
-          }
-        />
+    <AppShell activePath="/wishes" occasions={data.occasions} demoMode={data.demoMode}>
+      <section className="page-header-banner shell-panel">
+        <div className="page-header-banner__content">
+          <StatusPill tone="gold" icon={<IconGift size={13} />}>
+            Catalogue des attentions
+          </StatusPill>
+          <h1 className="page-header-banner__title">
+            Toutes les envies cadeaux, organisées pour choisir juste.
+          </h1>
+          <p className="page-header-banner__desc">
+            Explore les envies prioritaires, filtre par occasion ou par tranche de budget FCFA,
+            et réserve discrètement pour garder l'effet de surprise intact.
+          </p>
+        </div>
       </section>
 
-      <div className="stack">
-        <section className="shell-panel">
-          <SectionHeading
-            kicker="A offrir"
-            title="Les envies actives"
-            body="Les cartes montrent budget, occasion, priorite et details utiles au premier regard."
-          />
-          <div className="wish-grid">
-            {data.activeWishes.map((wish) => (
-              <WishCard key={wish.id} wish={wish} demoMode={data.demoMode} />
-            ))}
-          </div>
-        </section>
-
-        <section className="shell-panel">
-          <SectionHeading
-            kicker="Mode discret"
-            title="Les envies deja reservees"
-            body="Ce bloc garde la surprise intacte tout en evitant les oublis ou les doublons."
-          />
-          <div className="wish-grid">
-            {data.reservedWishes.map((wish) => (
-              <WishCard key={wish.id} wish={wish} demoMode={data.demoMode} compact />
-            ))}
-          </div>
-        </section>
-      </div>
+      <section className="wishes-catalogue-section">
+        <WishExplorer
+          wishes={allWishes}
+          occasions={data.occasions}
+          demoMode={data.demoMode}
+          title="Toutes les envies"
+        />
+      </section>
 
       <WishComposer occasions={data.occasions} demoMode={data.demoMode} />
     </AppShell>
