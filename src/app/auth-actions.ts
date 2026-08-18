@@ -102,12 +102,16 @@ async function acceptInvitationForUser(params: {
   return { ok: true as const, user: linked };
 }
 
-export async function signUp(formData: FormData): Promise<AuthState> {
+export async function signUp(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!hasDatabase()) {
     return { error: "La base n'est pas encore connectée." };
   }
 
-  await ensureAdminUser();
+  try {
+    await ensureAdminUser();
+  } catch {
+    /* L'admin se crée plus tard ; ne bloque pas l'inscription. */
+  }
 
   const name = String(formData.get("name") ?? "").trim();
   const email = normalizeEmail(formData.get("email"));
@@ -125,7 +129,13 @@ export async function signUp(formData: FormData): Promise<AuthState> {
     return { error: "Le mot de passe doit contenir au moins 8 caractères." };
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  let existing;
+  try {
+    existing = await prisma.user.findUnique({ where: { email } });
+  } catch {
+    return { error: "Impossible de joindre la base. Réessaie dans un instant." };
+  }
+
   if (existing) {
     return {
       error: inviteToken
@@ -154,29 +164,34 @@ export async function signUp(formData: FormData): Promise<AuthState> {
     }
 
     const role = complementaryRole(invitation.inviter.role);
-    const user = await prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          name,
-          email,
-          passwordHash: await hashPassword(password),
-          role,
-          partnerId: invitation.inviterId
-        }
-      });
+    let user;
+    try {
+      user = await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            name,
+            email,
+            passwordHash: await hashPassword(password),
+            role,
+            partnerId: invitation.inviterId
+          }
+        });
 
-      await tx.user.update({
-        where: { id: invitation.inviterId },
-        data: { partnerId: created.id }
-      });
+        await tx.user.update({
+          where: { id: invitation.inviterId },
+          data: { partnerId: created.id }
+        });
 
-      await tx.invitation.update({
-        where: { id: invitation.id },
-        data: { status: "ACCEPTED", acceptedAt: new Date() }
-      });
+        await tx.invitation.update({
+          where: { id: invitation.id },
+          data: { status: "ACCEPTED", acceptedAt: new Date() }
+        });
 
-      return created;
-    });
+        return created;
+      });
+    } catch {
+      return { error: "Impossible de rejoindre l'espace. Réessaie." };
+    }
 
     const recipientId = user.role === "RECIPIENT" ? user.id : invitation.inviterId;
     await ensureDefaultOccasions(recipientId);
@@ -188,14 +203,19 @@ export async function signUp(formData: FormData): Promise<AuthState> {
     return { error: "Choisis si tu notes les envies ou si tu offres." };
   }
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      passwordHash: await hashPassword(password),
-      role: requestedRole
-    }
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash: await hashPassword(password),
+        role: requestedRole
+      }
+    });
+  } catch {
+    return { error: "Impossible de créer le compte. Réessaie." };
+  }
 
   if (user.role === "RECIPIENT") {
     await ensureDefaultOccasions(user.id);
@@ -205,12 +225,16 @@ export async function signUp(formData: FormData): Promise<AuthState> {
   redirect("/inviter");
 }
 
-export async function signIn(formData: FormData): Promise<AuthState> {
+export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {
   if (!hasDatabase()) {
     return { error: "La base n'est pas encore connectée." };
   }
 
-  await ensureAdminUser();
+  try {
+    await ensureAdminUser();
+  } catch {
+    /* ignore */
+  }
 
   const email = normalizeEmail(formData.get("email"));
   const password = String(formData.get("password") ?? "");
@@ -220,7 +244,13 @@ export async function signIn(formData: FormData): Promise<AuthState> {
     return { error: "Indique ton e-mail et ton mot de passe." };
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user;
+  try {
+    user = await prisma.user.findUnique({ where: { email } });
+  } catch {
+    return { error: "Impossible de joindre la base. Réessaie dans un instant." };
+  }
+
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     return { error: "E-mail ou mot de passe incorrect." };
   }

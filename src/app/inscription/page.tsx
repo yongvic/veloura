@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { hasDatabase } from "@/lib/env";
 import { InscriptionForm } from "@/components/inscription-form";
@@ -35,14 +34,9 @@ export default async function InscriptionPage({
     }
   }
 
-  const loginHref = invitation ? `/connexion?invite=${invitation.token}` : "/connexion";
-
   return (
     <div className="auth-screen">
       <InscriptionForm invitation={invitation} />
-      <p className="auth-switch auth-switch--outside">
-        Déjà un compte ? <Link href={loginHref}>Se connecter</Link>
-      </p>
     </div>
   );
 }

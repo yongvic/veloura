@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { hasDatabase } from "@/lib/env";
 import { ConnexionForm } from "@/components/connexion-form";
@@ -25,14 +24,9 @@ export default async function ConnexionPage({
     }
   }
 
-  const signupHref = invitation ? `/inscription?invite=${invitation.token}` : "/inscription";
-
   return (
     <div className="auth-screen">
       <ConnexionForm invitation={invitation} />
-      <p className="auth-switch auth-switch--outside">
-        Pas encore de compte ? <Link href={signupHref}>Créer un espace</Link>
-      </p>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
+import Link from "next/link";
 import { signIn } from "@/app/auth-actions";
 import { BrandMark } from "@/components/brand-mark";
 
@@ -9,18 +10,8 @@ export function ConnexionForm({
 }: {
   invitation: { email: string; inviterName: string; token: string } | null;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  async function onSubmit(formData: FormData) {
-    setPending(true);
-    setError(null);
-    const result = await signIn(formData);
-    if (result?.error) {
-      setError(result.error);
-      setPending(false);
-    }
-  }
+  const [state, formAction, pending] = useActionState(signIn, null);
+  const signupHref = invitation ? `/inscription?invite=${invitation.token}` : "/inscription";
 
   return (
     <div className="auth-card shell-panel">
@@ -38,15 +29,15 @@ export function ConnexionForm({
           <strong>{invitation.email}</strong> pour lier vos comptes.
         </p>
       ) : (
-        <p className="auth-lead">Entre ton e-mail pour retrouver l’espace partagé.</p>
+        <p className="auth-lead">Entre ton e-mail et ton mot de passe.</p>
       )}
 
-      <form action={onSubmit} className="auth-form">
+      <form action={formAction} className="auth-form">
         {invitation ? <input type="hidden" name="inviteToken" value={invitation.token} /> : null}
 
-        {error ? (
+        {state?.error ? (
           <div className="form-error-banner" role="alert">
-            {error}
+            {state.error}
           </div>
         ) : null}
 
@@ -78,6 +69,10 @@ export function ConnexionForm({
           {pending ? "Connexion..." : invitation ? "Se connecter et rejoindre" : "Se connecter"}
         </button>
       </form>
+
+      <p className="auth-switch">
+        Pas encore de compte ? <Link href={signupHref}>Créer un espace</Link>
+      </p>
     </div>
   );
 }
