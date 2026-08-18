@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { demoData } from "@/lib/demo-data";
 import { hasDatabase } from "@/lib/env";
 import type { DashboardData, OccasionSummary, PreferenceSummary, WishSummary } from "@/lib/types";
 
@@ -37,17 +36,21 @@ function mapWish(wish: {
   };
 }
 
-export function isDemoMode() {
-  return !hasDatabase();
-}
-
-export async function getDashboardData(): Promise<DashboardData> {
+export async function getDashboardData(recipientId: string): Promise<DashboardData> {
   if (!hasDatabase()) {
-    return demoData;
+    return {
+      recipientName: "",
+      currentRole: "RECIPIENT",
+      activeWishes: [],
+      reservedWishes: [],
+      giftedWishes: [],
+      occasions: [],
+      preferences: null
+    };
   }
 
-  const recipient = await prisma.user.findFirst({
-    where: { role: "RECIPIENT" },
+  const recipient = await prisma.user.findUnique({
+    where: { id: recipientId },
     include: {
       profile: true,
       wishes: {
@@ -62,21 +65,14 @@ export async function getDashboardData(): Promise<DashboardData> {
   });
 
   const occasions = await prisma.occasion.findMany({
+    where: { ownerId: recipientId },
     include: {
-      _count: {
-        select: {
-          wishes: true
-        }
-      }
+      _count: { select: { wishes: true } }
     },
     orderBy: [{ eventDate: "asc" }, { name: "asc" }]
   });
 
-  if (!recipient) {
-    return demoData;
-  }
-
-  const preferences: PreferenceSummary | null = recipient.profile
+  const preferences: PreferenceSummary | null = recipient?.profile
     ? {
         favoriteColors: recipient.profile.favoriteColors,
         favoriteBrands: recipient.profile.favoriteBrands,
@@ -95,11 +91,11 @@ export async function getDashboardData(): Promise<DashboardData> {
     wishCount: occasion._count.wishes
   }));
 
-  const mapped = recipient.wishes.map(mapWish);
+  const mapped = (recipient?.wishes ?? []).map(mapWish);
 
   return {
-    demoMode: false,
-    recipientName: recipient.name,
+    recipientName: recipient?.name ?? "",
+    currentRole: "RECIPIENT",
     activeWishes: mapped.filter((wish) => wish.status === "ACTIVE"),
     reservedWishes: mapped.filter((wish) => wish.status === "RESERVED"),
     giftedWishes: mapped.filter((wish) => wish.status === "GIFTED"),

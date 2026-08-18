@@ -3,8 +3,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import {
-  IconArrowLeft,
-  IconBookmark,
   IconCalendar,
   IconCheck,
   IconClock,
@@ -13,14 +11,15 @@ import {
   IconHeart,
   IconLock,
   IconSparkle,
-  IconTag,
-  IconTrash
+  IconTag
 } from "@/components/icons";
 import { SectionHeading } from "@/components/section-heading";
 import { StatusPill } from "@/components/status-pill";
 import { WishCard, priorityConfig } from "@/components/wish-card";
 import { getDashboardData } from "@/lib/data";
-import { formatFcfa, formatShortDate } from "@/lib/format";
+import { requireCouple } from "@/lib/guard";
+import { formatShortDate } from "@/lib/format";
+import type { AppRole } from "@/lib/types";
 
 export default async function WishDetailPage({
   params
@@ -28,7 +27,9 @@ export default async function WishDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const data = await getDashboardData();
+  const { session, recipientId } = await requireCouple();
+  const currentRole = session.role as AppRole;
+  const data = await getDashboardData(recipientId);
   const allWishes = [...data.activeWishes, ...data.reservedWishes, ...data.giftedWishes];
   const wish = allWishes.find((entry) => entry.id === id);
 
@@ -51,7 +52,8 @@ export default async function WishDetailPage({
       backHref="/wishes"
       backLabel="Retour à la liste des envies"
       occasions={data.occasions}
-      demoMode={data.demoMode}
+      userName={session.name}
+      currentRole={currentRole}
     >
       {/* Breadcrumb row */}
       <nav aria-label="Fil d'Ariane" className="breadcrumb-nav">
@@ -123,11 +125,6 @@ export default async function WishDetailPage({
 
             <h1 className="wish-detail-title">{wish.title}</h1>
 
-            <div className="wish-detail-price-box">
-              <span className="detail-price-label">Budget estimé</span>
-              <span className="detail-price-amount">{formatFcfa(wish.priceFcfa)}</span>
-            </div>
-
             {/* Description / Story */}
             <div className="wish-detail-desc-block">
               <h3 className="detail-block-title">Description & Précisions</h3>
@@ -191,7 +188,7 @@ export default async function WishDetailPage({
             <div className="wish-detail-actions-panel">
               <WishCard
                 wish={wish}
-                demoMode={data.demoMode}
+                currentRole={currentRole}
                 compact
                 showActions={true}
               />
@@ -212,7 +209,7 @@ export default async function WishDetailPage({
               </div>
 
               {wish.giftHistory.note ? (
-                <p className="memory-card-note">"{wish.giftHistory.note}"</p>
+                <p className="memory-card-note">« {wish.giftHistory.note} »</p>
               ) : null}
 
               <span className="memory-card-date">
@@ -236,7 +233,7 @@ export default async function WishDetailPage({
               <WishCard
                 key={rel.id}
                 wish={rel}
-                demoMode={data.demoMode}
+                currentRole={currentRole}
                 compact
               />
             ))}

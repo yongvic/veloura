@@ -13,12 +13,11 @@ import {
   IconHeart,
   IconLock,
   IconSparkle,
-  IconTag,
   IconTrash,
   IconX
 } from "@/components/icons";
 import { StatusPill } from "@/components/status-pill";
-import { formatFcfa, formatShortDate } from "@/lib/format";
+import { formatShortDate } from "@/lib/format";
 import type { WishPriority, WishSummary } from "@/lib/types";
 
 export const priorityConfig: Record<
@@ -42,18 +41,16 @@ export const reactionOptions = [
 
 export function WishCard({
   wish,
-  demoMode,
   layout = "grid",
   compact = false,
   showActions = true,
-  currentRole = "all"
+  currentRole = "RECIPIENT"
 }: {
   wish: WishSummary;
-  demoMode: boolean;
   layout?: "grid" | "list";
   compact?: boolean;
   showActions?: boolean;
-  currentRole?: "all" | "recipient" | "gifter";
+  currentRole?: "RECIPIENT" | "GIFTER";
 }) {
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
@@ -66,6 +63,7 @@ export function WishCard({
 
   const isGifted = wish.status === "GIFTED";
   const isReserved = wish.status === "RESERVED";
+  const canGift = currentRole === "GIFTER";
   const priorityInfo = priorityConfig[wish.priority] || priorityConfig.WOULD_LOVE;
 
   async function handleReserve(e: React.FormEvent<HTMLFormElement>) {
@@ -145,9 +143,6 @@ export function WishCard({
           </div>
 
           <div className="wish-list-row__meta">
-            <div className="wish-list-row__price">
-              {formatFcfa(wish.priceFcfa)}
-            </div>
             <div className="wish-list-row__occasion">
               <IconGift size={13} /> {wish.occasion?.name ?? "Occasion libre"}
             </div>
@@ -158,22 +153,20 @@ export function WishCard({
               <Link href={`/wishes/${wish.id}`} className="btn-secondary btn-secondary--sm">
                 Détails
               </Link>
-              {!isGifted && !isReserved ? (
+              {canGift && !isGifted && !isReserved ? (
                 <button
                   type="button"
                   className="btn-primary btn-primary--sm"
                   onClick={() => setIsReserveModalOpen(true)}
-                  disabled={demoMode}
                 >
                   <IconBookmark size={14} /> Réserver
                 </button>
               ) : null}
-              {!isGifted && isReserved ? (
+              {canGift && !isGifted && isReserved ? (
                 <button
                   type="button"
                   className="btn-accent btn-accent--sm"
                   onClick={() => setIsGiftModalOpen(true)}
-                  disabled={demoMode}
                 >
                   <IconCheck size={14} /> Offert
                 </button>
@@ -242,9 +235,6 @@ export function WishCard({
             <h3 className="wish-card__title">
               <Link href={`/wishes/${wish.id}`}>{wish.title}</Link>
             </h3>
-            <div className="wish-card__price-tag">
-              {formatFcfa(wish.priceFcfa)}
-            </div>
           </div>
 
           {wish.description ? (
@@ -274,7 +264,7 @@ export function WishCard({
                 <strong>Souvenir : {wish.giftHistory.reaction ?? "Un moment magique"}</strong>
               </div>
               {wish.giftHistory.note ? (
-                <p className="memory-box__note">"{wish.giftHistory.note}"</p>
+                <p className="memory-box__note">« {wish.giftHistory.note} »</p>
               ) : null}
               <span className="memory-box__date">
                 Offert le {formatShortDate(wish.giftHistory.giftedAt ?? wish.giftedAt)}
@@ -301,14 +291,13 @@ export function WishCard({
                 ) : null}
               </div>
 
-              {!isGifted ? (
+              {canGift && !isGifted ? (
                 <div className="wish-card__cta-group">
                   {!isReserved ? (
                     <button
                       type="button"
                       className="btn-secondary btn-secondary--sm w-full"
                       onClick={() => setIsReserveModalOpen(true)}
-                      disabled={demoMode}
                     >
                       <IconBookmark size={15} />
                       <span>Réserver en secret</span>
@@ -324,7 +313,6 @@ export function WishCard({
                     type="button"
                     className="btn-primary btn-primary--sm w-full"
                     onClick={() => setIsGiftModalOpen(true)}
-                    disabled={demoMode}
                   >
                     <IconCheck size={15} />
                     <span>Marquer comme offert</span>
@@ -378,7 +366,7 @@ export function WishCard({
 
               <form onSubmit={handleReserve} className="composer-form-inner">
                 <p className="modal-body-text">
-                  Tu t'apprêtes à réserver <strong>"{wish.title}"</strong> ({formatFcfa(wish.priceFcfa)}).
+                  Tu t’apprêtes à réserver <strong>« {wish.title} »</strong>.
                   Ce cadeau sera marqué comme réservé pour éviter les doublons tout en gardant la surprise intacte.
                 </p>
 
@@ -394,7 +382,7 @@ export function WishCard({
                   <button
                     type="submit"
                     className="btn-primary"
-                    disabled={isPending || demoMode}
+                    disabled={isPending}
                   >
                     {isPending ? "Réservation en cours..." : "Confirmer la réservation"}
                   </button>
@@ -439,8 +427,8 @@ export function WishCard({
 
               <form onSubmit={handleGift} className="composer-form-inner">
                 <p className="modal-body-text">
-                  Félicitations ! Tu as offert <strong>"{wish.title}"</strong>.
-                  Cette attention rejoindra l'historique de vos moments précieux.
+                  Félicitations ! Tu as offert <strong>« {wish.title} »</strong>.
+                  Cette attention rejoindra l’historique de vos moments précieux.
                 </p>
 
                 <div className="form-field">
@@ -487,7 +475,7 @@ export function WishCard({
                   <button
                     type="submit"
                     className="btn-primary"
-                    disabled={isPending || demoMode}
+                    disabled={isPending}
                   >
                     {isPending ? "Enregistrement..." : "Enregistrer dans les souvenirs"}
                   </button>
@@ -532,7 +520,7 @@ export function WishCard({
 
               <form onSubmit={handleDelete} className="composer-form-inner">
                 <p className="modal-body-text">
-                  Es-tu sûr(e) de vouloir supprimer définitivement <strong>"{wish.title}"</strong> de la liste ?
+                  Es-tu sûr(e) de vouloir supprimer définitivement <strong>« {wish.title} »</strong> de la liste ?
                 </p>
 
                 <div className="modal-card__footer">
@@ -547,7 +535,7 @@ export function WishCard({
                   <button
                     type="submit"
                     className="btn-danger"
-                    disabled={isPending || demoMode}
+                    disabled={isPending}
                   >
                     {isPending ? "Suppression..." : "Oui, supprimer"}
                   </button>

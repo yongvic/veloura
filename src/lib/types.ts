@@ -1,5 +1,6 @@
 export type WishPriority = "MUST_HAVE" | "WOULD_LOVE" | "MAYBE_LATER" | "LUXURY";
 export type WishStatus = "ACTIVE" | "RESERVED" | "GIFTED";
+export type AppRole = "RECIPIENT" | "GIFTER";
 
 export type OccasionSummary = {
   id: string;
@@ -48,8 +49,8 @@ export type PreferenceSummary = {
 };
 
 export type DashboardData = {
-  demoMode: boolean;
   recipientName: string;
+  currentRole: AppRole;
   activeWishes: WishSummary[];
   reservedWishes: WishSummary[];
   giftedWishes: WishSummary[];

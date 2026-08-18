@@ -14,6 +14,8 @@ import {
 import { SectionHeading } from "@/components/section-heading";
 import { StatusPill } from "@/components/status-pill";
 import { getDashboardData } from "@/lib/data";
+import { requireCouple } from "@/lib/guard";
+import type { AppRole } from "@/lib/types";
 
 const preferenceSections = [
   {
@@ -59,18 +61,20 @@ const preferenceSections = [
 ];
 
 export default async function PreferencesPage() {
-  const data = await getDashboardData();
+  const { session, recipientId } = await requireCouple();
+  const currentRole = session.role as AppRole;
+  const data = await getDashboardData(recipientId);
   const preferences = data.preferences;
 
   return (
-    <AppShell activePath="/preferences" occasions={data.occasions} demoMode={data.demoMode}>
+    <AppShell activePath="/preferences" occasions={data.occasions} userName={session.name} currentRole={currentRole}>
       <section className="page-header-banner shell-panel">
         <div className="page-header-banner__content">
           <StatusPill tone="gold" icon={<IconUser size={13} />}>
             Guide des attentions
           </StatusPill>
           <h1 className="page-header-banner__title">
-            Le profil d'attentions pour ne jamais se tromper.
+            Le profil d’attentions pour ne jamais se tromper.
           </h1>
           <p className="page-header-banner__desc">
             Tailles exactes, couleurs préférées, marques coup de cœur et précisions utiles :
@@ -127,8 +131,8 @@ export default async function PreferencesPage() {
         <div className="reassurance-text">
           <h3>Un doute sur une taille ou un modèle ?</h3>
           <p>
-            Toutes les envies enregistrées dans l'onglet <strong>Envies</strong> comportent
-            également des descriptions précises saisies au fil de l'eau.
+            Toutes les envies enregistrées dans l’onglet <strong>Envies</strong> comportent
+            également des descriptions précises saisies au fil de l’eau.
           </p>
         </div>
         <Link href="/wishes" className="btn-primary">

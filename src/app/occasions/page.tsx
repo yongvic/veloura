@@ -13,21 +13,25 @@ import { StatusPill } from "@/components/status-pill";
 import { WishCard } from "@/components/wish-card";
 import { WishComposer } from "@/components/wish-composer";
 import { getDashboardData } from "@/lib/data";
+import { requireCouple } from "@/lib/guard";
 import { formatShortDate } from "@/lib/format";
+import type { AppRole } from "@/lib/types";
 
 export default async function OccasionsPage() {
-  const data = await getDashboardData();
+  const { session, recipientId } = await requireCouple();
+  const currentRole = session.role as AppRole;
+  const data = await getDashboardData(recipientId);
   const allWishes = [...data.activeWishes, ...data.reservedWishes, ...data.giftedWishes];
 
   return (
-    <AppShell activePath="/occasions" occasions={data.occasions} demoMode={data.demoMode}>
+    <AppShell activePath="/occasions" occasions={data.occasions} userName={session.name} currentRole={currentRole}>
       <section className="page-header-banner shell-panel">
         <div className="page-header-banner__content">
           <StatusPill tone="gold" icon={<IconCalendar size={13} />}>
             Moments précieux
           </StatusPill>
           <h1 className="page-header-banner__title">
-            Les attentions s'attachent à des moments, pas seulement à des objets.
+            Les attentions s’attachent à des moments, pas seulement à des objets.
           </h1>
           <p className="page-header-banner__desc">
             Anniversaire, Noël, Saint-Valentin ou douce surprise du quotidien :
@@ -92,7 +96,7 @@ export default async function OccasionsPage() {
                       <WishCard
                         key={wish.id}
                         wish={wish}
-                        demoMode={data.demoMode}
+                        currentRole={currentRole}
                         compact
                       />
                     ))}
@@ -100,7 +104,7 @@ export default async function OccasionsPage() {
                 </div>
               ) : (
                 <div className="occasion-panel__empty-slot">
-                  <p>Aucune envie n'est encore rattachée à cette occasion.</p>
+                  <p>Aucune envie n’est encore rattachée à cette occasion.</p>
                 </div>
               )}
             </article>
@@ -108,7 +112,7 @@ export default async function OccasionsPage() {
         })}
       </div>
 
-      <WishComposer occasions={data.occasions} demoMode={data.demoMode} />
+      <WishComposer occasions={data.occasions} />
     </AppShell>
   );
 }

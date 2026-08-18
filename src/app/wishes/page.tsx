@@ -1,17 +1,25 @@
 import { AppShell } from "@/components/app-shell";
-import { IconGift, IconSparkle } from "@/components/icons";
-import { SectionHeading } from "@/components/section-heading";
+import { IconGift } from "@/components/icons";
 import { StatusPill } from "@/components/status-pill";
 import { WishComposer } from "@/components/wish-composer";
 import { WishExplorer } from "@/components/wish-explorer";
 import { getDashboardData } from "@/lib/data";
+import { requireCouple } from "@/lib/guard";
+import type { AppRole } from "@/lib/types";
 
 export default async function WishesPage() {
-  const data = await getDashboardData();
+  const { session, recipientId } = await requireCouple();
+  const currentRole = session.role as AppRole;
+  const data = await getDashboardData(recipientId);
   const allWishes = [...data.activeWishes, ...data.reservedWishes, ...data.giftedWishes];
 
   return (
-    <AppShell activePath="/wishes" occasions={data.occasions} demoMode={data.demoMode}>
+    <AppShell
+      activePath="/wishes"
+      occasions={data.occasions}
+      userName={session.name}
+      currentRole={currentRole}
+    >
       <section className="page-header-banner shell-panel">
         <div className="page-header-banner__content">
           <StatusPill tone="gold" icon={<IconGift size={13} />}>
@@ -21,22 +29,16 @@ export default async function WishesPage() {
             Toutes les envies cadeaux, organisées pour choisir juste.
           </h1>
           <p className="page-header-banner__desc">
-            Explore les envies prioritaires, filtre par occasion ou par tranche de budget FCFA,
-            et réserve discrètement pour garder l'effet de surprise intact.
+            Explore les priorités, filtre par occasion, et réserve discrètement pour garder la surprise.
           </p>
         </div>
       </section>
 
       <section className="wishes-catalogue-section">
-        <WishExplorer
-          wishes={allWishes}
-          occasions={data.occasions}
-          demoMode={data.demoMode}
-          title="Toutes les envies"
-        />
+        <WishExplorer wishes={allWishes} occasions={data.occasions} currentRole={currentRole} />
       </section>
 
-      <WishComposer occasions={data.occasions} demoMode={data.demoMode} />
+      <WishComposer occasions={data.occasions} />
     </AppShell>
   );
 }

@@ -1,20 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Instrument_Sans } from "next/font/google";
+import { Instrument_Sans } from "next/font/google";
 import type { ReactNode } from "react";
 
 import "@/app/globals.css";
 
-const display = Cormorant_Garamond({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-display",
-  display: "swap"
-});
-
-const body = Instrument_Sans({
+const sans = Instrument_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-body",
+  variable: "--font-sans",
   display: "swap"
 });
 
@@ -22,7 +15,8 @@ export const viewport: Viewport = {
   themeColor: "#2b0b1a",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 5
+  maximumScale: 5,
+  viewportFit: "cover"
 };
 
 export const metadata: Metadata = {
@@ -41,9 +35,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className={`${display.variable} ${body.variable}`}>
-        {children}
-      </body>
+      <body className={sans.variable}>{children}</body>
     </html>
   );
 }

@@ -1,41 +1,36 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import {
-  IconArrowRight,
-  IconCalendar,
-  IconCheck,
-  IconGift,
-  IconHeart,
-  IconPlus,
-  IconSparkle
-} from "@/components/icons";
+import { IconGift, IconHeart, IconSparkle } from "@/components/icons";
 import { SectionHeading } from "@/components/section-heading";
 import { StatusPill } from "@/components/status-pill";
 import { WishCard } from "@/components/wish-card";
 import { getDashboardData } from "@/lib/data";
-import { formatFcfa, formatShortDate } from "@/lib/format";
+import { requireCouple } from "@/lib/guard";
+import type { AppRole } from "@/lib/types";
 
 export default async function HistoryPage() {
-  const data = await getDashboardData();
+  const { session, recipientId } = await requireCouple();
+  const currentRole = session.role as AppRole;
+  const data = await getDashboardData(recipientId);
   const giftedWishes = data.giftedWishes;
-  const totalGiftedBudget = giftedWishes.reduce(
-    (sum, wish) => sum + (wish.priceFcfa ?? 0),
-    0
-  );
 
   return (
-    <AppShell activePath="/history" occasions={data.occasions} demoMode={data.demoMode}>
+    <AppShell
+      activePath="/history"
+      occasions={data.occasions}
+      userName={session.name}
+      currentRole={currentRole}
+    >
       <section className="page-header-banner shell-panel">
         <div className="page-header-banner__content">
           <StatusPill tone="gold" icon={<IconHeart size={13} />}>
-            Livre d'or & Mémoire
+            Livre d’or
           </StatusPill>
           <h1 className="page-header-banner__title">
             Ce qui a été offert ne disparaît pas : cela raconte votre histoire.
           </h1>
           <p className="page-header-banner__desc">
-            Retrouve l'historique complet des cadeaux partagés, les dates célébrées,
-            les réactions et les anecdotes précieuses accumulées au fil du temps.
+            Retrouve les cadeaux partagés, les dates célébrées et les souvenirs gardés.
           </p>
 
           <div className="history-summary-stats">
@@ -43,33 +38,21 @@ export default async function HistoryPage() {
               <strong className="stat-number">{giftedWishes.length}</strong>
               <span className="stat-label">Moments célébrés</span>
             </div>
-            <div className="history-stat-box">
-              <strong className="stat-number text-gradient-gold">
-                {formatFcfa(totalGiftedBudget)}
-              </strong>
-              <span className="stat-label">Valeur des attentions</span>
-            </div>
           </div>
         </div>
       </section>
 
-      {/* Gifted Wishes Timeline */}
       {giftedWishes.length > 0 ? (
         <div className="history-timeline-section">
           <SectionHeading
             kicker="Chronologie"
             title="Les souvenirs immortalisés"
-            body="Chaque attention garde sa date, son occasion et l'émotion partagée lors de sa remise."
+            body="Chaque attention garde sa date, son occasion et l'émotion partagée."
           />
 
           <div className="history-wishes-grid">
             {giftedWishes.map((wish) => (
-              <WishCard
-                key={wish.id}
-                wish={wish}
-                demoMode={data.demoMode}
-                showActions={true}
-              />
+              <WishCard key={wish.id} wish={wish} currentRole={currentRole} />
             ))}
           </div>
         </div>
@@ -80,8 +63,7 @@ export default async function HistoryPage() {
           </div>
           <h3>Aucun cadeau archivé pour le moment</h3>
           <p>
-            Dès que tu auras offert un cadeau de la liste et cliqué sur "Marquer comme offert",
-            il s'inscrira automatiquement ici avec votre souvenir personnalisé.
+            Dès qu’un cadeau est marqué comme offert, il s’inscrit ici avec votre souvenir.
           </p>
           <Link href="/wishes" className="btn-primary">
             <IconGift size={16} />
@@ -90,18 +72,14 @@ export default async function HistoryPage() {
         </div>
       )}
 
-      {/* Signature Veloura Box */}
       <section className="memory-signature-banner shell-panel">
         <div className="signature-badge">
           <IconSparkle size={18} />
           <span>Signature Veloura</span>
         </div>
         <h3 className="signature-title">
-          Offrir n'est pas une simple transaction, c'est un geste d'attention intime.
+          Offrir n’est pas une simple transaction, c’est un geste d’attention.
         </h3>
-        <p className="signature-desc">
-          Ce carnet de souvenirs grandit à chaque occasion partagée.
-        </p>
       </section>
     </AppShell>
   );

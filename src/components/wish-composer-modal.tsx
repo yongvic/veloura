@@ -2,14 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { createWish } from "@/app/actions";
-import {
-  IconCheck,
-  IconGift,
-  IconPlus,
-  IconSparkle,
-  IconTag,
-  IconX
-} from "@/components/icons";
+import { IconCheck, IconGift, IconPlus, IconSparkle, IconTag, IconX } from "@/components/icons";
 import type { OccasionSummary, WishPriority } from "@/lib/types";
 
 const priorityOptions: Array<{ value: WishPriority; label: string; desc: string }> = [
@@ -30,41 +23,29 @@ const categoryOptions = [
   "Surprise"
 ];
 
-const budgetPresets = [15000, 30000, 50000, 100000];
-
 type ComposerState = { error?: string; ok?: boolean } | null;
 
 export function WishComposerModal({
   occasions,
-  demoMode,
   isOpen,
   onClose,
   initialOccasionId
 }: {
   occasions: OccasionSummary[];
-  demoMode: boolean;
   isOpen: boolean;
   onClose: () => void;
   initialOccasionId?: string;
 }) {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [selectedBudget, setSelectedBudget] = useState<number | null>(null);
-  const [customBudget, setCustomBudget] = useState<string>("");
   const [successToast, setSuccessToast] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
   const [state, formAction, pending] = useActionState(
     async (_prev: ComposerState, formData: FormData): Promise<ComposerState> => {
-      // If a preset budget was chosen and not overwritten in text
-      if (selectedBudget && !formData.get("priceFcfa")) {
-        formData.set("priceFcfa", String(selectedBudget));
-      }
       const result = await createWish(formData);
       if (result?.ok) {
         setPhotoPreview(null);
-        setSelectedBudget(null);
-        setCustomBudget("");
         setSuccessToast(true);
         setTimeout(() => {
           setSuccessToast(false);
@@ -79,9 +60,7 @@ export function WishComposerModal({
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
-      setTimeout(() => {
-        titleInputRef.current?.focus();
-      }, 100);
+      setTimeout(() => titleInputRef.current?.focus(), 100);
     } else {
       document.body.style.overflow = "";
     }
@@ -92,9 +71,7 @@ export function WishComposerModal({
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && isOpen && !pending) {
-        onClose();
-      }
+      if (e.key === "Escape" && isOpen && !pending) onClose();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -106,9 +83,7 @@ export function WishComposerModal({
     <div
       className="modal-backdrop"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !pending) {
-          onClose();
-        }
+        if (e.target === e.currentTarget && !pending) onClose();
       }}
       role="dialog"
       aria-modal="true"
@@ -143,8 +118,8 @@ export function WishComposerModal({
             <div className="composer-success-banner__icon">
               <IconCheck size={24} />
             </div>
-            <h3>Envie enregistrée avec succès</h3>
-            <p>Elle a été ajoutée à la liste et s'affiche immédiatement.</p>
+            <h3>Envie enregistrée</h3>
+            <p>Elle apparaît maintenant dans la liste.</p>
           </div>
         ) : (
           <form action={formAction} className="composer-form-inner">
@@ -154,16 +129,9 @@ export function WishComposerModal({
               </div>
             ) : null}
 
-            {demoMode ? (
-              <div className="demo-notice-bar">
-                <span>Mode démonstration : les ajouts sont simulés localement.</span>
-              </div>
-            ) : null}
-
-            {/* Titre */}
             <div className="form-field">
               <label htmlFor="wish-title" className="form-label">
-                Titre de l'envie <span className="required-star">*</span>
+                Titre de l’envie <span className="required-star">*</span>
               </label>
               <input
                 id="wish-title"
@@ -176,7 +144,6 @@ export function WishComposerModal({
               />
             </div>
 
-            {/* Catégorie & Priorité */}
             <div className="form-row-2">
               <div className="form-field">
                 <label htmlFor="wish-category" className="form-label">
@@ -199,7 +166,7 @@ export function WishComposerModal({
 
               <div className="form-field">
                 <label htmlFor="wish-priority" className="form-label">
-                  <IconSparkle size={15} /> Niveau d'envie
+                  <IconSparkle size={15} /> Niveau d’envie
                 </label>
                 <select
                   id="wish-priority"
@@ -217,47 +184,6 @@ export function WishComposerModal({
               </div>
             </div>
 
-            {/* Budget en FCFA */}
-            <div className="form-field">
-              <label className="form-label">
-                Budget estimé en FCFA <span className="label-subtext">(optionnel)</span>
-              </label>
-              <div className="budget-preset-pills">
-                {budgetPresets.map((amount) => {
-                  const isSelected = selectedBudget === amount && !customBudget;
-                  return (
-                    <button
-                      key={amount}
-                      type="button"
-                      className={`preset-pill ${isSelected ? "is-selected" : ""}`}
-                      onClick={() => {
-                        setSelectedBudget(amount);
-                        setCustomBudget(String(amount));
-                      }}
-                      disabled={pending}
-                    >
-                      {new Intl.NumberFormat("fr-FR").format(amount)} FCFA
-                    </button>
-                  );
-                })}
-              </div>
-              <input
-                type="number"
-                name="priceFcfa"
-                min="0"
-                step="1000"
-                value={customBudget}
-                onChange={(e) => {
-                  setCustomBudget(e.target.value);
-                  setSelectedBudget(null);
-                }}
-                placeholder="Ou saisis un montant précis (ex: 45000)"
-                className="form-input"
-                disabled={pending}
-              />
-            </div>
-
-            {/* Occasion & Lien marchand */}
             <div className="form-row-2">
               <div className="form-field">
                 <label htmlFor="wish-occasion" className="form-label">
@@ -281,7 +207,7 @@ export function WishComposerModal({
 
               <div className="form-field">
                 <label htmlFor="wish-product-url" className="form-label">
-                  Lien marchand ou boutique
+                  Lien boutique
                 </label>
                 <input
                   id="wish-product-url"
@@ -294,7 +220,6 @@ export function WishComposerModal({
               </div>
             </div>
 
-            {/* Photo Upload ou URL */}
             <div className="form-field photo-dropzone-block">
               <label className="form-label">Photo du cadeau</label>
               {photoPreview ? (
@@ -324,9 +249,7 @@ export function WishComposerModal({
                     disabled={pending}
                     onChange={(event) => {
                       const file = event.target.files?.[0];
-                      if (file) {
-                        setPhotoPreview(URL.createObjectURL(file));
-                      }
+                      if (file) setPhotoPreview(URL.createObjectURL(file));
                     }}
                   />
                   <div className="photo-dropzone-content">
@@ -335,24 +258,15 @@ export function WishComposerModal({
                     </div>
                     <div>
                       <p className="photo-upload-main">
-                        <strong>Sélectionne une photo</strong> ou glisse un fichier ici
+                        <strong>Choisis une photo</strong> depuis l’appareil
                       </p>
-                      <p className="photo-upload-hint">JPG, PNG, WEBP jusqu'à 4.5 Mo</p>
+                      <p className="photo-upload-hint">JPG, PNG, WEBP jusqu’à 4,5 Mo</p>
                     </div>
                   </div>
                 </div>
               )}
-
-              <input
-                name="imageUrl"
-                type="url"
-                placeholder="Ou colle directement l'URL d'une image en ligne"
-                className="form-input mt-2"
-                disabled={pending}
-              />
             </div>
 
-            {/* Description / Précisions */}
             <div className="form-field">
               <label htmlFor="wish-description" className="form-label">
                 Détails et précisions <span className="label-subtext">(couleur, taille, matière...)</span>
@@ -367,30 +281,12 @@ export function WishComposerModal({
               />
             </div>
 
-            {/* Footer actions */}
             <div className="modal-card__footer">
-              <button
-                type="button"
-                className="btn-ghost"
-                onClick={onClose}
-                disabled={pending}
-              >
+              <button type="button" className="btn-ghost" onClick={onClose} disabled={pending}>
                 Annuler
               </button>
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={pending}
-              >
-                {pending ? (
-                  <span className="btn-spinner-content">
-                    <span className="spinner-dot" /> Enregistrement...
-                  </span>
-                ) : (
-                  <>
-                    <IconPlus size={18} /> Enregistrer l'envie
-                  </>
-                )}
+              <button type="submit" className="btn-primary" disabled={pending}>
+                {pending ? "Enregistrement..." : "Enregistrer l'envie"}
               </button>
             </div>
           </form>

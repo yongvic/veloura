@@ -3,27 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
+import { signOut } from "@/app/auth-actions";
 import { BrandMark } from "@/components/brand-mark";
 import {
   IconArrowLeft,
-  IconBookmark,
   IconCalendar,
-  IconClock,
   IconGift,
   IconHeart,
+  IconLogOut,
   IconPlus,
   IconSparkle,
-  IconTag,
   IconUser
 } from "@/components/icons";
 import { WishComposerModal } from "@/components/wish-composer-modal";
-import type { OccasionSummary } from "@/lib/types";
+import type { AppRole, OccasionSummary } from "@/lib/types";
 
 const navigationLinks = [
   { href: "/", label: "Accueil", icon: IconSparkle },
   { href: "/wishes", label: "Envies", icon: IconGift },
   { href: "/occasions", label: "Occasions", icon: IconCalendar },
-  { href: "/preferences", label: "Préférences", icon: IconUser },
+  { href: "/preferences", label: "Goûts", icon: IconUser },
   { href: "/history", label: "Mémoire", icon: IconHeart }
 ];
 
@@ -33,14 +32,15 @@ export function AppShell({
   backHref,
   backLabel,
   occasions = [],
-  demoMode = false
+  userName
 }: {
   children: ReactNode;
   activePath?: string;
   backHref?: string;
   backLabel?: string;
   occasions?: OccasionSummary[];
-  demoMode?: boolean;
+  userName: string;
+  currentRole: AppRole;
 }) {
   const pathname = usePathname();
   const currentPath = activePath ?? pathname;
@@ -48,19 +48,17 @@ export function AppShell({
 
   return (
     <div className="shell-root">
-      {/* Top Header Navigation */}
       <header className="topbar shell-panel">
         <div className="topbar__identity">
           <Link href="/" className="brand-link" aria-label="Retour à l'accueil Veloura">
-            <BrandMark size={42} />
+            <BrandMark size={36} />
             <div className="brand-text">
               <span className="brand-name">Veloura</span>
-              <span className="brand-tagline">Écrin d'attentions</span>
+              <span className="brand-tagline">{userName}</span>
             </div>
           </Link>
         </div>
 
-        {/* Desktop Navigation Links */}
         <nav className="topbar__nav" aria-label="Navigation principale">
           {navigationLinks.map((link) => {
             const Icon = link.icon;
@@ -79,7 +77,6 @@ export function AppShell({
           })}
         </nav>
 
-        {/* Header Right Action */}
         <div className="topbar__actions">
           <button
             type="button"
@@ -87,12 +84,16 @@ export function AppShell({
             onClick={() => setIsComposerOpen(true)}
           >
             <IconPlus size={16} />
-            <span>Ajouter une envie</span>
+            <span>Ajouter</span>
           </button>
+          <form action={signOut}>
+            <button type="submit" className="icon-logout-btn" aria-label="Se déconnecter">
+              <IconLogOut size={18} />
+            </button>
+          </form>
         </div>
       </header>
 
-      {/* Sub-Header / Back navigation bar if on detail page */}
       {backHref ? (
         <div className="subnav-bar">
           <Link href={backHref} className="subnav-back-link">
@@ -102,12 +103,10 @@ export function AppShell({
         </div>
       ) : null}
 
-      {/* Main Page Frame */}
       <main className="page-frame" id="main-content">
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation Bar */}
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile">
         <div className="mobile-bottom-nav__container">
           {navigationLinks.slice(0, 2).map((link) => {
@@ -126,7 +125,6 @@ export function AppShell({
             );
           })}
 
-          {/* Central Floating Action Button */}
           <button
             type="button"
             className="mobile-fab-btn"
@@ -154,10 +152,8 @@ export function AppShell({
         </div>
       </nav>
 
-      {/* Global Quick Wish Composer Modal */}
       <WishComposerModal
         occasions={occasions}
-        demoMode={demoMode}
         isOpen={isComposerOpen}
         onClose={() => setIsComposerOpen(false)}
       />

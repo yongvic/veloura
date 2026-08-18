@@ -1,17 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { IconGift, IconPlus, IconSparkle } from "@/components/icons";
+import { IconPlus, IconSparkle } from "@/components/icons";
 import { WishComposerModal } from "@/components/wish-composer-modal";
 import type { OccasionSummary } from "@/lib/types";
 
-export function WishComposer({
-  occasions,
-  demoMode
-}: {
-  occasions: OccasionSummary[];
-  demoMode: boolean;
-}) {
+export function WishComposer({ occasions }: { occasions: OccasionSummary[] }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -25,28 +19,19 @@ export function WishComposer({
             <span className="composer-banner__tag">Ajout rapide</span>
             <h3 className="composer-banner__title">Une idée en tête ? Note-la en quelques secondes</h3>
             <p className="composer-banner__desc">
-              Titre, photo, budget en FCFA et occasion : ajoute ton envie pour qu'elle ne soit jamais oubliée.
+              Titre, photo et occasion : ajoute l’envie pour qu’elle ne soit jamais oubliée.
             </p>
           </div>
         </div>
         <div className="composer-banner__action">
-          <button
-            type="button"
-            className="btn-primary btn-primary--lg"
-            onClick={() => setIsOpen(true)}
-          >
+          <button type="button" className="btn-primary btn-primary--lg" onClick={() => setIsOpen(true)}>
             <IconPlus size={20} />
             <span>Ajouter une envie</span>
           </button>
         </div>
       </section>
 
-      <WishComposerModal
-        occasions={occasions}
-        demoMode={demoMode}
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-      />
+      <WishComposerModal occasions={occasions} isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </>
   );
 }

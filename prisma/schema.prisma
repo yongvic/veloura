@@ -10,6 +10,7 @@ datasource db {
 enum UserRole {
   RECIPIENT
   GIFTER
+  ADMIN
 }
 
 enum WishPriority {
@@ -25,74 +26,104 @@ enum WishStatus {
   GIFTED
 }
 
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
+}
+
 model User {
-  id           String             @id @default(cuid())
-  name         String
-  email        String             @unique
-  role         UserRole
-  wishes       Wish[]             @relation("RecipientWishes")
-  reservedWish Wish[]             @relation("ReservedWishes")
-  profile      PreferenceProfile?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id              String             @id @default(cuid())
+  name            String
+  email           String             @unique
+  passwordHash    String
+  role            UserRole
+  partnerId       String?            @unique
+  partner         User?              @relation("CoupleLink", fields: [partnerId], references: [id])
+  linkedFrom      User?              @relation("CoupleLink")
+  wishes          Wish[]             @relation("RecipientWishes")
+  reservedWish    Wish[]             @relation("ReservedWishes")
+  profile         PreferenceProfile?
+  occasions       Occasion[]         @relation("OwnedOccasions")
+  invitationsSent Invitation[]       @relation("Inviter")
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model Invitation {
+  id         String           @id @default(cuid())
+  token      String           @unique
+  inviterId  String
+  inviter    User             @relation("Inviter", fields: [inviterId], references: [id], onDelete: Cascade)
+  email      String
+  status     InvitationStatus @default(PENDING)
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime         @default(now())
+
+  @@index([email, status])
 }
 
 model Wish {
-  id               String        @id @default(cuid())
-  title            String
-  description      String?
-  imageUrl         String?
-  imageBlobPath    String?
-  productUrl       String?
-  priceFcfa        Int?
-  category         String
-  priority         WishPriority  @default(WOULD_LOVE)
-  status           WishStatus    @default(ACTIVE)
-  recipientId      String
-  recipient        User          @relation("RecipientWishes", fields: [recipientId], references: [id], onDelete: Cascade)
-  occasionId       String?
-  occasion         Occasion?     @relation(fields: [occasionId], references: [id], onDelete: SetNull)
-  reservedById     String?
-  reservedBy       User?         @relation("ReservedWishes", fields: [reservedById], references: [id], onDelete: SetNull)
-  giftedAt         DateTime?
-  giftHistory      GiftHistory?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  imageUrl      String?
+  imageBlobPath String?
+  productUrl    String?
+  priceFcfa     Int?
+  category      String
+  priority      WishPriority @default(WOULD_LOVE)
+  status        WishStatus   @default(ACTIVE)
+  recipientId   String
+  recipient     User         @relation("RecipientWishes", fields: [recipientId], references: [id], onDelete: Cascade)
+  occasionId    String?
+  occasion      Occasion?    @relation(fields: [occasionId], references: [id], onDelete: SetNull)
+  reservedById  String?
+  reservedBy    User?        @relation("ReservedWishes", fields: [reservedById], references: [id], onDelete: SetNull)
+  giftedAt      DateTime?
+  giftHistory   GiftHistory?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   @@index([recipientId, status])
   @@index([occasionId])
 }
 
 model Occasion {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
-  slug        String   @unique
+  slug        String
   eventDate   DateTime?
   description String?
+  ownerId     String
+  owner       User      @relation("OwnedOccasions", fields: [ownerId], references: [id], onDelete: Cascade)
   wishes      Wish[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([ownerId, slug])
 }
 
 model GiftHistory {
-  id         String   @id @default(cuid())
-  wishId      String   @unique
-  wish        Wish     @relation(fields: [wishId], references: [id], onDelete: Cascade)
-  note        String?
-  reaction    String?
-  giftedAt    DateTime
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  wishId    String   @unique
+  wish      Wish     @relation(fields: [wishId], references: [id], onDelete: Cascade)
+  note      String?
+  reaction  String?
+  giftedAt  DateTime
+  createdAt DateTime @default(now())
 }
 
 model PreferenceProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  favoriteColors  String[]
-  favoriteBrands  String[]
-  favoriteStyles  String[]
-  sizes           String[]
-  avoidNotes      String[]
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  favoriteColors String[]
+  favoriteBrands String[]
+  favoriteStyles String[]
+  sizes          String[]
+  avoidNotes     String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

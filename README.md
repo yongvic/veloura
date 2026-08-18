@@ -1,6 +1,6 @@
 # Veloura
 
-Veloura est une plateforme wishlist cadeaux en `Next.js`, pensee mobile-first, avec une interface premium, des budgets en `FCFA`, un mode discret de reservation et un historique des cadeaux deja offerts.
+Veloura est une wishlist cadeaux en `Next.js`, pensée mobile-first. Deux comptes se lient par invitation : l'un note les envies, l'autre réserve et offre.
 
 ## Stack
 
@@ -18,27 +18,31 @@ Copie `.env.example` vers `.env.local`:
 DATABASE_URL="postgresql://USER:PASSWORD@HOST.neon.tech/neondb?sslmode=require"
 DIRECT_URL="postgresql://USER:PASSWORD@HOST.neon.tech/neondb?sslmode=require"
 BLOB_READ_WRITE_TOKEN="vercel_blob_rw_..."
+AUTH_SECRET="une-clé-secrète-d-au-moins-16-caractères"
+ADMIN_EMAIL="admin@example.com"
+ADMIN_PASSWORD="change-me-please"
 ```
 
 - `DATABASE_URL`: connexion Neon (pooled si disponible)
 - `DIRECT_URL`: connexion Neon directe pour les migrations Prisma
 - `BLOB_READ_WRITE_TOKEN`: token Vercel Blob pour stocker les photos
+- `AUTH_SECRET`: signature des sessions
+- `ADMIN_EMAIL` / `ADMIN_PASSWORD`: crée le compte admin au premier login ou à la première inscription
 
-## Demarrage local
+## Démarrage local
 
 ```bash
 npm install
 npx prisma migrate deploy
-npm run prisma:seed
 npm run dev
 ```
 
-Sans `DATABASE_URL` Neon, l'app reste en mode demo lecture seule.
+Ouvre `/inscription` pour créer le premier compte, puis envoie une invitation. L'admin se connecte sur `/connexion` avec `ADMIN_EMAIL`.
 
 ## Photos
 
-Chaque envie peut recevoir une photo via un upload fichier. En production, le fichier part sur `Vercel Blob`. En local, sans token Blob, la photo est enregistree dans `public/uploads`.
+Chaque envie peut recevoir une photo via un upload fichier. En production, le fichier part sur `Vercel Blob`. En local, sans token Blob, la photo est enregistrée dans `public/uploads`.
 
 ## Deploy Vercel
 
-Le `vercel.json` lance `prisma migrate deploy` avant le build. Ajoute les 3 variables ci-dessus dans le projet Vercel.
+Ajoute les variables ci-dessus dans le projet Vercel. Le build lance `prisma migrate deploy` puis `next build`.

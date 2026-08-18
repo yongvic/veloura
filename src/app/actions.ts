@@ -2,17 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { del } from "@vercel/blob";
-
 import { uploadWishPhoto } from "@/lib/blob";
 import { hasDatabase } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
-
-async function getDefaultRecipient() {
-  return prisma.user.findFirst({
-    where: { role: "RECIPIENT" },
-    select: { id: true }
-  });
-}
+import { requireCouple } from "@/lib/guard";
 
 function revalidateAll() {
   revalidatePath("/");
@@ -22,29 +15,32 @@ function revalidateAll() {
   revalidatePath("/preferences");
 }
 
+async function assertWishAccess(wishId: string, recipientId: string) {
+  const wish = await prisma.wish.findFirst({
+    where: { id: wishId, recipientId },
+    select: { id: true, status: true, reservedById: true }
+  });
+  return wish;
+}
+
 export async function createWish(formData: FormData) {
   if (!hasDatabase()) {
-    return { error: "La base Neon n'est pas encore connectee." };
+    return { error: "La base n'est pas encore connectée." };
   }
 
+  const { recipientId } = await requireCouple();
   const title = String(formData.get("title") ?? "").trim();
   if (!title) {
     return { error: "Ajoute un titre pour cette envie." };
   }
 
-  const recipient = await getDefaultRecipient();
-  if (!recipient) {
-    return { error: "Aucun profil destinataire n'a ete trouve." };
-  }
-
-  const priceValue = String(formData.get("priceFcfa") ?? "").trim();
   const occasionId = String(formData.get("occasionId") ?? "").trim();
   const photo = formData.get("photo");
   const file = photo instanceof File ? photo : null;
 
   let uploaded;
   try {
-    uploaded = await uploadWishPhoto(file, String(formData.get("imageUrl") ?? "").trim() || null);
+    uploaded = await uploadWishPhoto(file);
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Impossible d'enregistrer la photo." };
   }
@@ -62,8 +58,7 @@ export async function createWish(formData: FormData) {
         | "WOULD_LOVE"
         | "MAYBE_LATER"
         | "LUXURY"),
-      priceFcfa: priceValue ? Number(priceValue) : null,
-      recipientId: recipient.id,
+      recipientId,
       occasionId: occasionId || null
     }
   });
@@ -74,24 +69,25 @@ export async function createWish(formData: FormData) {
 
 export async function reserveWish(formData: FormData) {
   if (!hasDatabase()) {
-    return { error: "La base Neon n'est pas encore connectee." };
+    return { error: "La base n'est pas encore connectée." };
+  }
+
+  const { session, recipientId } = await requireCouple();
+  if (session.role !== "GIFTER") {
+    return { error: "Seul celui qui offre peut réserver un cadeau." };
   }
 
   const wishId = String(formData.get("wishId") ?? "");
-  if (!wishId) {
+  const wish = wishId ? await assertWishAccess(wishId, recipientId) : null;
+  if (!wish) {
     return { error: "Envie introuvable." };
   }
-
-  const gifter = await prisma.user.findFirst({
-    where: { role: "GIFTER" },
-    select: { id: true }
-  });
 
   await prisma.wish.update({
     where: { id: wishId },
     data: {
       status: "RESERVED",
-      reservedById: gifter?.id ?? null
+      reservedById: session.userId
     }
   });
 
@@ -101,11 +97,17 @@ export async function reserveWish(formData: FormData) {
 
 export async function markGifted(formData: FormData) {
   if (!hasDatabase()) {
-    return { error: "La base Neon n'est pas encore connectee." };
+    return { error: "La base n'est pas encore connectée." };
+  }
+
+  const { session, recipientId } = await requireCouple();
+  if (session.role !== "GIFTER") {
+    return { error: "Seul celui qui offre peut marquer un cadeau comme offert." };
   }
 
   const wishId = String(formData.get("wishId") ?? "");
-  if (!wishId) {
+  const wish = wishId ? await assertWishAccess(wishId, recipientId) : null;
+  if (!wish) {
     return { error: "Envie introuvable." };
   }
 
@@ -126,13 +128,13 @@ export async function markGifted(formData: FormData) {
       update: {
         giftedAt,
         note: note || null,
-        reaction: reaction || "A adore"
+        reaction: reaction || "A adoré"
       },
       create: {
         wishId,
         giftedAt,
         note: note || null,
-        reaction: reaction || "A adore"
+        reaction: reaction || "A adoré"
       }
     })
   ]);
@@ -143,22 +145,29 @@ export async function markGifted(formData: FormData) {
 
 export async function deleteWish(formData: FormData) {
   if (!hasDatabase()) {
-    return { error: "La base Neon n'est pas encore connectee." };
+    return { error: "La base n'est pas encore connectée." };
+  }
+
+  const { session, recipientId } = await requireCouple();
+  if (session.role !== "RECIPIENT") {
+    return { error: "Seule la personne qui note les envies peut en retirer une." };
   }
 
   const wishId = String(formData.get("wishId") ?? "");
-  if (!wishId) {
+  const wish = wishId
+    ? await prisma.wish.findFirst({
+        where: { id: wishId, recipientId },
+        select: { imageBlobPath: true, imageUrl: true }
+      })
+    : null;
+
+  if (!wish) {
     return { error: "Envie introuvable." };
   }
 
-  const wish = await prisma.wish.findUnique({
-    where: { id: wishId },
-    select: { imageBlobPath: true, imageUrl: true }
-  });
-
   await prisma.wish.delete({ where: { id: wishId } });
 
-  if (wish?.imageBlobPath && process.env.BLOB_READ_WRITE_TOKEN) {
+  if (wish.imageBlobPath && process.env.BLOB_READ_WRITE_TOKEN) {
     await del(wish.imageUrl ?? wish.imageBlobPath, {
       token: process.env.BLOB_READ_WRITE_TOKEN
     }).catch(() => undefined);

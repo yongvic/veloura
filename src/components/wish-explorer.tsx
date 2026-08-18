@@ -2,8 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-  IconBookmark,
-  IconFilter,
   IconGift,
   IconGrid,
   IconList,
@@ -12,23 +10,13 @@ import {
   IconSearch,
   IconSliders,
   IconSparkle,
-  IconTag,
   IconX
 } from "@/components/icons";
 import { WishCard } from "@/components/wish-card";
 import { WishComposerModal } from "@/components/wish-composer-modal";
-import type { OccasionSummary, WishPriority, WishStatus, WishSummary } from "@/lib/types";
+import type { AppRole, OccasionSummary, WishPriority, WishSummary } from "@/lib/types";
 
-export type BudgetRange = "all" | "under-15k" | "15k-35k" | "35k-75k" | "above-75k";
-export type SortOption = "priority" | "price-asc" | "price-desc" | "recent";
-
-const budgetRangeDefs: Array<{ id: BudgetRange; label: string }> = [
-  { id: "all", label: "Tous les budgets" },
-  { id: "under-15k", label: "< 15 000 FCFA" },
-  { id: "15k-35k", label: "15 000 - 35 000 FCFA" },
-  { id: "35k-75k", label: "35 000 - 75 000 FCFA" },
-  { id: "above-75k", label: "> 75 000 FCFA" }
-];
+export type SortOption = "priority" | "recent";
 
 const priorityOrder: Record<WishPriority, number> = {
   MUST_HAVE: 1,
@@ -40,19 +28,15 @@ const priorityOrder: Record<WishPriority, number> = {
 export function WishExplorer({
   wishes,
   occasions,
-  demoMode,
+  currentRole,
   initialOccasionSlug,
-  initialStatusFilter = "active-reserved",
-  title = "Catalogue des envies",
-  description
+  initialStatusFilter = "active-reserved"
 }: {
   wishes: WishSummary[];
   occasions: OccasionSummary[];
-  demoMode: boolean;
+  currentRole: AppRole;
   initialOccasionSlug?: string;
   initialStatusFilter?: "all" | "active-only" | "active-reserved" | "reserved-only" | "gifted-only";
-  title?: string;
-  description?: string;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOccasion, setSelectedOccasion] = useState<string>(
@@ -60,12 +44,10 @@ export function WishExplorer({
   );
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedPriority, setSelectedPriority] = useState<string>("all");
-  const [selectedBudget, setSelectedBudget] = useState<BudgetRange>("all");
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
   const [sortBy, setSortBy] = useState<SortOption>("priority");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isComposerOpen, setIsComposerOpen] = useState(false);
-  const [isFiltersDrawerOpen, setIsFiltersDrawerOpen] = useState(false);
 
   // Extract unique categories from actual wishes
   const categories = useMemo(() => {
@@ -111,25 +93,10 @@ export function WishExplorer({
         return false;
       }
 
-      // Budget Range Filter
-      if (selectedBudget !== "all") {
-        const price = wish.priceFcfa ?? 0;
-        if (selectedBudget === "under-15k" && (price === 0 || price >= 15000)) return false;
-        if (selectedBudget === "15k-35k" && (price < 15000 || price > 35000)) return false;
-        if (selectedBudget === "35k-75k" && (price < 35000 || price > 75000)) return false;
-        if (selectedBudget === "above-75k" && price <= 75000) return false;
-      }
-
       return true;
     }).sort((a, b) => {
       if (sortBy === "priority") {
         return (priorityOrder[a.priority] ?? 5) - (priorityOrder[b.priority] ?? 5);
-      }
-      if (sortBy === "price-asc") {
-        return (a.priceFcfa ?? 0) - (b.priceFcfa ?? 0);
-      }
-      if (sortBy === "price-desc") {
-        return (b.priceFcfa ?? 0) - (a.priceFcfa ?? 0);
       }
       if (sortBy === "recent") {
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -143,7 +110,6 @@ export function WishExplorer({
     selectedOccasion,
     selectedCategory,
     selectedPriority,
-    selectedBudget,
     sortBy
   ]);
 
@@ -153,7 +119,6 @@ export function WishExplorer({
     if (selectedOccasion !== "all") count++;
     if (selectedCategory !== "all") count++;
     if (selectedPriority !== "all") count++;
-    if (selectedBudget !== "all") count++;
     if (statusFilter !== initialStatusFilter) count++;
     return count;
   }, [
@@ -161,7 +126,6 @@ export function WishExplorer({
     selectedOccasion,
     selectedCategory,
     selectedPriority,
-    selectedBudget,
     statusFilter,
     initialStatusFilter
   ]);
@@ -171,7 +135,6 @@ export function WishExplorer({
     setSelectedOccasion("all");
     setSelectedCategory("all");
     setSelectedPriority("all");
-    setSelectedBudget("all");
     setStatusFilter(initialStatusFilter);
     setSortBy("priority");
   }
@@ -262,25 +225,6 @@ export function WishExplorer({
             </select>
           </div>
 
-          {/* Budget Filter */}
-          <div className="filter-dropdown-wrap">
-            <label htmlFor="filter-budget" className="filter-chip-label">
-              <IconTag size={14} /> Budget FCFA
-            </label>
-            <select
-              id="filter-budget"
-              value={selectedBudget}
-              onChange={(e) => setSelectedBudget(e.target.value as BudgetRange)}
-              className="filter-chip-select"
-            >
-              {budgetRangeDefs.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Priority Filter */}
           <div className="filter-dropdown-wrap">
             <label htmlFor="filter-prio" className="filter-chip-label">
@@ -334,8 +278,6 @@ export function WishExplorer({
               className="filter-chip-select"
             >
               <option value="priority">Par priorité</option>
-              <option value="price-asc">Budget croissant</option>
-              <option value="price-desc">Budget décroissant</option>
               <option value="recent">Plus récentes</option>
             </select>
           </div>
@@ -367,7 +309,7 @@ export function WishExplorer({
             <WishCard
               key={wish.id}
               wish={wish}
-              demoMode={demoMode}
+              currentRole={currentRole}
               layout={viewMode}
             />
           ))}
@@ -381,7 +323,7 @@ export function WishExplorer({
           <h3 className="empty-state-title">Aucune envie ne correspond aux critères</h3>
           <p className="empty-state-desc">
             {activeFiltersCount > 0
-              ? "Essaie d'élargir tes filtres de budget ou de catégorie pour découvrir d'autres idées."
+              ? "Essaie d'élargir tes filtres d'occasion ou de catégorie."
               : "La liste est encore vide pour le moment. Ajoute la première idée pour démarrer !"}
           </p>
           <div className="empty-state-actions">
@@ -408,7 +350,6 @@ export function WishExplorer({
       {/* Modal Composer */}
       <WishComposerModal
         occasions={occasions}
-        demoMode={demoMode}
         isOpen={isComposerOpen}
         onClose={() => setIsComposerOpen(false)}
       />

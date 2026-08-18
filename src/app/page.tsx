@@ -2,51 +2,53 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import {
   IconArrowRight,
-  IconBookmark,
   IconCalendar,
   IconGift,
   IconHeart,
   IconLock,
-  IconSparkle,
-  IconTag
+  IconSparkle
 } from "@/components/icons";
 import { SectionHeading } from "@/components/section-heading";
 import { StatusPill } from "@/components/status-pill";
-import { WishCard } from "@/components/wish-card";
 import { WishComposer } from "@/components/wish-composer";
 import { WishExplorer } from "@/components/wish-explorer";
+import { requireCouple } from "@/lib/guard";
 import { getDashboardData } from "@/lib/data";
-import { formatFcfa, formatShortDate } from "@/lib/format";
+import { formatShortDate } from "@/lib/format";
+import type { AppRole } from "@/lib/types";
 
 export default async function HomePage() {
-  const data = await getDashboardData();
+  const { session, user, recipientId } = await requireCouple();
+  const currentRole = session.role as AppRole;
+  const data = await getDashboardData(recipientId);
   const topWish = data.activeWishes[0];
   const reservedCount = data.reservedWishes.length;
-  const totalBudget = data.activeWishes.reduce((sum, wish) => sum + (wish.priceFcfa ?? 0), 0);
+  const partnerName = user.partner?.name ?? data.recipientName;
 
   return (
-    <AppShell activePath="/" occasions={data.occasions} demoMode={data.demoMode}>
-      {/* Hero Welcome Banner */}
+    <AppShell
+      activePath="/"
+      occasions={data.occasions}
+      userName={session.name}
+      currentRole={currentRole}
+    >
       <section className="hero-section">
         <div className="hero-main shell-panel">
           <div className="hero-main__badge-row">
             <StatusPill tone="gold" icon={<IconSparkle size={13} />}>
-              Écrin intime
+              {currentRole === "RECIPIENT" ? "Tes envies" : `Liste de ${partnerName}`}
             </StatusPill>
-            {data.demoMode ? (
-              <StatusPill tone="muted">Mode démo</StatusPill>
-            ) : (
-              <StatusPill tone="success">Base connectée</StatusPill>
-            )}
           </div>
 
           <h1 className="hero-main__headline">
-            {data.recipientName} note ses envies, vous offrez avec attention.
+            {currentRole === "RECIPIENT"
+              ? `${session.name}, note tes envies. ${partnerName} offrira avec attention.`
+              : `Les envies de ${partnerName}, pour offrir juste.`}
           </h1>
 
           <p className="hero-main__lead">
-            Un espace partagé pour capturer chaque idée cadeau en quelques secondes,
-            choisir le bon présent sans hésiter et immortaliser les beaux souvenirs.
+            Un espace à deux : capturer une idée en quelques secondes, réserver sans gâcher
+            la surprise, et garder le souvenir des cadeaux déjà offerts.
           </p>
 
           <div className="hero-stats-row">
@@ -57,25 +59,15 @@ export default async function HomePage() {
               </span>
             </Link>
 
-            <Link href="/wishes?status=reserved" className="hero-stat-card">
+            <Link href="/wishes" className="hero-stat-card">
               <span className="hero-stat-card__number">{reservedCount}</span>
               <span className="hero-stat-card__label">
                 <IconLock size={14} /> Cadeaux réservés
               </span>
             </Link>
-
-            <div className="hero-stat-card">
-              <span className="hero-stat-card__number text-gradient-gold">
-                {formatFcfa(totalBudget)}
-              </span>
-              <span className="hero-stat-card__label">
-                <IconTag size={14} /> Budget total estimé
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* Spotlight Card - Top Priority Wish */}
         <div className="hero-spotlight shell-panel">
           <div className="spotlight-header">
             <StatusPill tone="accent" icon={<IconSparkle size={12} />}>
@@ -90,20 +82,17 @@ export default async function HomePage() {
                 <Link href={`/wishes/${topWish.id}`}>{topWish.title}</Link>
               </h3>
               <p className="spotlight-desc">
-                {topWish.description ?? "Cette envie est au sommet de ses souhaits."}
+                {topWish.description ?? "Cette envie est au sommet de la liste."}
               </p>
               <div className="spotlight-meta-row">
                 <StatusPill tone="primary">{topWish.category}</StatusPill>
                 <StatusPill tone="neutral">
                   {topWish.occasion?.name ?? "Occasion libre"}
                 </StatusPill>
-                <div className="spotlight-price">
-                  {formatFcfa(topWish.priceFcfa)}
-                </div>
               </div>
               <div className="spotlight-actions">
                 <Link href={`/wishes/${topWish.id}`} className="btn-primary btn-primary--sm w-full">
-                  <span>Découvrir cette envie</span>
+                  <span>Voir cette envie</span>
                   <IconArrowRight size={15} />
                 </Link>
               </div>
@@ -111,31 +100,28 @@ export default async function HomePage() {
           ) : (
             <div className="spotlight-empty">
               <h3>La liste attend sa première envie</h3>
-              <p>Ajoute une première idée cadeau pour donner vie à cet écrin.</p>
+              <p>Ajoute une première idée cadeau pour lancer l’espace.</p>
             </div>
           )}
         </div>
       </section>
 
-      {/* Main Grid: Wishes Explorer & Insight Asides */}
       <div className="dashboard-layout">
         <div className="dashboard-layout__main">
           <SectionHeading
             kicker="Sélection"
             title="Les envies en cours"
-            body="Recherche, filtre par occasion ou par budget pour trouver immédiatement l'attention idéale."
+            body="Recherche et filtre par occasion pour trouver l'attention idéale."
           />
 
           <WishExplorer
             wishes={[...data.activeWishes, ...data.reservedWishes]}
             occasions={data.occasions}
-            demoMode={data.demoMode}
-            title="Envies en cours"
+            currentRole={currentRole}
           />
         </div>
 
         <aside className="dashboard-layout__aside">
-          {/* Upcoming Occasions Card */}
           <section className="insight-card shell-panel">
             <div className="insight-card__header">
               <div className="insight-card__icon">
@@ -150,10 +136,7 @@ export default async function HomePage() {
             <ul className="occasion-quick-list">
               {data.occasions.map((occasion) => (
                 <li key={occasion.id} className="occasion-quick-item">
-                  <Link
-                    href={`/occasions#${occasion.slug}`}
-                    className="occasion-quick-link"
-                  >
+                  <Link href={`/occasions#${occasion.slug}`} className="occasion-quick-link">
                     <div className="occasion-quick-info">
                       <strong>{occasion.name}</strong>
                       <span>{formatShortDate(occasion.eventDate)}</span>
@@ -172,7 +155,6 @@ export default async function HomePage() {
             </Link>
           </section>
 
-          {/* Preferences Quick Insight */}
           {data.preferences ? (
             <section className="insight-card shell-panel">
               <div className="insight-card__header">
@@ -181,7 +163,7 @@ export default async function HomePage() {
                 </div>
                 <div>
                   <span className="insight-card__kicker">Attentions</span>
-                  <h3 className="insight-card__title">Guide des tailles & goûts</h3>
+                  <h3 className="insight-card__title">Guide des tailles et goûts</h3>
                 </div>
               </div>
 
@@ -198,19 +180,6 @@ export default async function HomePage() {
                     </div>
                   </div>
                 ) : null}
-
-                {data.preferences.favoriteColors.length > 0 ? (
-                  <div className="pref-preview-row">
-                    <span className="pref-preview-label">Couleurs :</span>
-                    <div className="pref-pills">
-                      {data.preferences.favoriteColors.map((c) => (
-                        <StatusPill key={c} size="sm" tone="gold">
-                          {c}
-                        </StatusPill>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
               </div>
 
               <Link href="/preferences" className="insight-card__footer-link">
@@ -220,7 +189,6 @@ export default async function HomePage() {
             </section>
           ) : null}
 
-          {/* Last Gifted Memory */}
           <section className="insight-card shell-panel">
             <div className="insight-card__header">
               <div className="insight-card__icon text-primary">
@@ -239,35 +207,25 @@ export default async function HomePage() {
                     {data.giftedWishes[0].title}
                   </Link>
                 </p>
-                <div className="memory-preview-reaction">
-                  <IconHeart size={13} className="text-primary" />
-                  <span>{data.giftedWishes[0].giftHistory?.reaction ?? "Cadeau offert"}</span>
-                </div>
-                {data.giftedWishes[0].giftHistory?.note ? (
-                  <p className="memory-preview-quote">
-                    "{data.giftedWishes[0].giftHistory?.note}"
-                  </p>
-                ) : null}
                 <span className="memory-preview-date">
                   {formatShortDate(data.giftedWishes[0].giftedAt)}
                 </span>
               </div>
             ) : (
               <p className="insight-empty-text">
-                Les attentions déjà offertes et vos anecdotes de couple apparaîtront ici.
+                Les cadeaux déjà offerts apparaîtront ici.
               </p>
             )}
 
             <Link href="/history" className="insight-card__footer-link">
-              <span>Ouvrir le livre d'or</span>
+              <span>Ouvrir le livre d’or</span>
               <IconArrowRight size={14} />
             </Link>
           </section>
         </aside>
       </div>
 
-      {/* Quick Add Section Banner */}
-      <WishComposer occasions={data.occasions} demoMode={data.demoMode} />
+      <WishComposer occasions={data.occasions} />
     </AppShell>
   );
 }
