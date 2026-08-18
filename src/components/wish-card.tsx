@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { deleteWish, markGifted, reserveWish } from "@/app/actions";
@@ -104,7 +103,8 @@ export function WishCard({
         <article className={`wish-list-row ${isReserved ? "is-reserved" : ""} ${isGifted ? "is-gifted" : ""}`}>
           <div className="wish-list-row__media">
             {wish.imageUrl ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={wish.imageUrl}
                 alt={wish.title}
                 width={80}
@@ -191,11 +191,10 @@ export function WishCard({
         <div className="wish-card__media-wrap">
           <div className="wish-card__media">
             {wish.imageUrl ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={wish.imageUrl}
                 alt={wish.title}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 className="wish-card__image"
               />
             ) : (

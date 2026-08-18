@@ -11,16 +11,20 @@ export default async function ConnexionPage({
   let invitation: { email: string; inviterName: string; token: string } | null = null;
 
   if (invite && hasDatabase()) {
-    const found = await prisma.invitation.findUnique({
-      where: { token: invite },
-      include: { inviter: { select: { name: true } } }
-    });
-    if (found && found.status === "PENDING" && found.expiresAt > new Date()) {
-      invitation = {
-        email: found.email,
-        inviterName: found.inviter.name,
-        token: found.token
-      };
+    try {
+      const found = await prisma.invitation.findUnique({
+        where: { token: invite },
+        include: { inviter: { select: { name: true } } }
+      });
+      if (found && found.status === "PENDING" && found.expiresAt > new Date()) {
+        invitation = {
+          email: found.email,
+          inviterName: found.inviter.name,
+          token: found.token
+        };
+      }
+    } catch (error) {
+      console.error("connexion invitation lookup", error);
     }
   }
 

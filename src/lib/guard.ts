@@ -74,17 +74,23 @@ export async function requireCouple() {
   const session = await requireUser();
   if (session.role === "ADMIN") redirect("/admin");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      partnerId: true,
-      partner: { select: { id: true, name: true, email: true, role: true } }
-    }
-  });
+  let user;
+  try {
+    user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        partnerId: true,
+        partner: { select: { id: true, name: true, email: true, role: true } }
+      }
+    });
+  } catch (error) {
+    console.error("requireCouple", error);
+    throw error;
+  }
 
   if (!user) {
     redirect("/connexion");
@@ -95,10 +101,14 @@ export async function requireCouple() {
   }
 
   const recipientId = user.role === "RECIPIENT" ? user.id : user.partner.id;
-  if (user.role === "RECIPIENT") {
-    await ensureDefaultOccasions(user.id);
-  } else {
-    await ensureDefaultOccasions(recipientId);
+  try {
+    if (user.role === "RECIPIENT") {
+      await ensureDefaultOccasions(user.id);
+    } else {
+      await ensureDefaultOccasions(recipientId);
+    }
+  } catch (error) {
+    console.error("ensureDefaultOccasions", error);
   }
 
   return { session, user, recipientId };

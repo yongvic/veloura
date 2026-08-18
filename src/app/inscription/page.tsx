@@ -16,21 +16,25 @@ export default async function InscriptionPage({
   } | null = null;
 
   if (invite && hasDatabase()) {
-    const found = await prisma.invitation.findUnique({
-      where: { token: invite },
-      include: { inviter: { select: { name: true } } }
-    });
-    if (found && found.status === "PENDING" && found.expiresAt > new Date()) {
-      const existing = await prisma.user.findUnique({
-        where: { email: found.email },
-        select: { id: true }
+    try {
+      const found = await prisma.invitation.findUnique({
+        where: { token: invite },
+        include: { inviter: { select: { name: true } } }
       });
-      invitation = {
-        email: found.email,
-        inviterName: found.inviter.name,
-        token: found.token,
-        existingAccount: Boolean(existing)
-      };
+      if (found && found.status === "PENDING" && found.expiresAt > new Date()) {
+        const existing = await prisma.user.findUnique({
+          where: { email: found.email },
+          select: { id: true }
+        });
+        invitation = {
+          email: found.email,
+          inviterName: found.inviter.name,
+          token: found.token,
+          existingAccount: Boolean(existing)
+        };
+      }
+    } catch (error) {
+      console.error("inscription invitation lookup", error);
     }
   }
 

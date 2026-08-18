@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
@@ -70,12 +69,10 @@ export default async function WishDetailPage({
         <div className="wish-detail-media shell-panel">
           <div className="wish-detail-image-wrap">
             {wish.imageUrl ? (
-              <Image
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={wish.imageUrl}
                 alt={wish.title}
-                fill
-                priority
-                sizes="(max-width: 900px) 100vw, 50vw"
                 className="wish-detail-image"
               />
             ) : (

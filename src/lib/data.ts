@@ -49,28 +49,29 @@ export async function getDashboardData(recipientId: string): Promise<DashboardDa
     };
   }
 
-  const recipient = await prisma.user.findUnique({
-    where: { id: recipientId },
-    include: {
-      profile: true,
-      wishes: {
-        include: {
-          occasion: true,
-          reservedBy: { select: { name: true } },
-          giftHistory: true
-        },
-        orderBy: [{ status: "asc" }, { createdAt: "desc" }]
+  try {
+    const recipient = await prisma.user.findUnique({
+      where: { id: recipientId },
+      include: {
+        profile: true,
+        wishes: {
+          include: {
+            occasion: true,
+            reservedBy: { select: { name: true } },
+            giftHistory: true
+          },
+          orderBy: [{ status: "asc" }, { createdAt: "desc" }]
+        }
       }
-    }
-  });
+    });
 
-  const occasions = await prisma.occasion.findMany({
-    where: { ownerId: recipientId },
-    include: {
-      _count: { select: { wishes: true } }
-    },
-    orderBy: [{ eventDate: "asc" }, { name: "asc" }]
-  });
+    const occasions = await prisma.occasion.findMany({
+      where: { ownerId: recipientId },
+      include: {
+        _count: { select: { wishes: true } }
+      },
+      orderBy: [{ eventDate: "asc" }, { name: "asc" }]
+    });
 
   const preferences: PreferenceSummary | null = recipient?.profile
     ? {
@@ -93,13 +94,25 @@ export async function getDashboardData(recipientId: string): Promise<DashboardDa
 
   const mapped = (recipient?.wishes ?? []).map(mapWish);
 
-  return {
-    recipientName: recipient?.name ?? "",
-    currentRole: "RECIPIENT",
-    activeWishes: mapped.filter((wish) => wish.status === "ACTIVE"),
-    reservedWishes: mapped.filter((wish) => wish.status === "RESERVED"),
-    giftedWishes: mapped.filter((wish) => wish.status === "GIFTED"),
-    occasions: occasionSummaries,
-    preferences
-  };
+    return {
+      recipientName: recipient?.name ?? "",
+      currentRole: "RECIPIENT",
+      activeWishes: mapped.filter((wish) => wish.status === "ACTIVE"),
+      reservedWishes: mapped.filter((wish) => wish.status === "RESERVED"),
+      giftedWishes: mapped.filter((wish) => wish.status === "GIFTED"),
+      occasions: occasionSummaries,
+      preferences
+    };
+  } catch (error) {
+    console.error("getDashboardData", error);
+    return {
+      recipientName: "",
+      currentRole: "RECIPIENT",
+      activeWishes: [],
+      reservedWishes: [],
+      giftedWishes: [],
+      occasions: [],
+      preferences: null
+    };
+  }
 }

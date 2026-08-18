@@ -17,26 +17,36 @@ export default async function RejoindrePage({
   const { invite } = await searchParams;
   if (!invite) redirect("/inviter");
 
-  const me = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { partnerId: true, email: true }
-  });
+  let me = null;
+  try {
+    me = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { partnerId: true, email: true }
+    });
+  } catch (lookupError) {
+    console.error("rejoindre user lookup", lookupError);
+  }
   if (me?.partnerId) redirect("/");
 
   let invitation: { email: string; inviterName: string } | null = null;
   let error: string | null = null;
 
   if (hasDatabase()) {
-    const found = await prisma.invitation.findUnique({
-      where: { token: invite },
-      include: { inviter: { select: { name: true } } }
-    });
-    if (!found || found.status !== "PENDING" || found.expiresAt < new Date()) {
-      error = "Cette invitation n’est plus valable.";
-    } else if (found.email !== session.email) {
-      error = `Cette invitation est destinée à ${found.email}. Connecte-toi avec cet e-mail.`;
-    } else {
-      invitation = { email: found.email, inviterName: found.inviter.name };
+    try {
+      const found = await prisma.invitation.findUnique({
+        where: { token: invite },
+        include: { inviter: { select: { name: true } } }
+      });
+      if (!found || found.status !== "PENDING" || found.expiresAt < new Date()) {
+        error = "Cette invitation n’est plus valable.";
+      } else if (found.email !== session.email) {
+        error = `Cette invitation est destinée à ${found.email}. Connecte-toi avec cet e-mail.`;
+      } else {
+        invitation = { email: found.email, inviterName: found.inviter.name };
+      }
+    } catch (lookupError) {
+      console.error("rejoindre invitation lookup", lookupError);
+      error = "Impossible de vérifier l’invitation pour le moment.";
     }
   }
 

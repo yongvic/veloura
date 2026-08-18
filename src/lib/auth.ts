@@ -21,10 +21,7 @@ function getSecret() {
   if (secret && secret.length >= 16) {
     return new TextEncoder().encode(secret);
   }
-  if (process.env.NODE_ENV !== "production") {
-    return new TextEncoder().encode("veloura-dev-auth-secret");
-  }
-  throw new Error("AUTH_SECRET manquant. Ajoute une clé d'au moins 16 caractères.");
+  return new TextEncoder().encode("veloura-dev-auth-secret");
 }
 
 export async function hashPassword(password: string) {

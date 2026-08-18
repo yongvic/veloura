@@ -9,17 +9,22 @@ export default async function InviterPage() {
   const session = await requireUser();
   if (session.role === "ADMIN") redirect("/admin");
 
-  const me = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: {
-      partnerId: true,
-      invitationsSent: {
-        where: { status: "PENDING" },
-        orderBy: { createdAt: "desc" },
-        take: 1
+  let me = null;
+  try {
+    me = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: {
+        partnerId: true,
+        invitationsSent: {
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
       }
-    }
-  });
+    });
+  } catch (error) {
+    console.error("inviter lookup", error);
+  }
 
   if (me?.partnerId) redirect("/");
 
