@@ -27,6 +27,8 @@ export function getAuthSecret() {
 /**
  * Échec franc au démarrage : en production, une config incomplète doit
  * empêcher le boot plutôt que de dégrader silencieusement l'app.
+ * BLOB_READ_WRITE_TOKEN est seulement signalé : l'upload a déjà son
+ * propre message d'erreur, une absence ne doit pas couper tout le site.
  */
 export function assertProductionEnv() {
   if (process.env.NODE_ENV !== "production") return;
@@ -35,9 +37,12 @@ export function assertProductionEnv() {
   if (!hasDatabase()) missing.push("DATABASE_URL");
   const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
   if (!secret || secret.length < 16) missing.push("AUTH_SECRET (16+ caractères)");
-  if (!process.env.BLOB_READ_WRITE_TOKEN) missing.push("BLOB_READ_WRITE_TOKEN");
 
   if (missing.length > 0) {
     throw new Error(`Configuration incomplète : ${missing.join(", ")}`);
+  }
+
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    console.error("BLOB_READ_WRITE_TOKEN absent : l'upload de photos sera indisponible.");
   }
 }
