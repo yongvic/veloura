@@ -45,6 +45,7 @@ export function WishCard({
   occasions?: OccasionSummary[];
 }) {
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
+  const [isUnreserveModalOpen, setIsUnreserveModalOpen] = useState(false);
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -62,7 +63,7 @@ export function WishCard({
   const canManage = currentRole === "RECIPIENT";
   const priorityInfo = priorityConfig[wish.priority] || priorityConfig.WOULD_LOVE;
   const priceLabel = formatPriceFcfa(wish.priceFcfa);
-  const anyModalOpen = isReserveModalOpen || isGiftModalOpen || isDeleteModalOpen;
+  const anyModalOpen = isReserveModalOpen || isUnreserveModalOpen || isGiftModalOpen || isDeleteModalOpen;
 
   useModalA11y({
     isOpen: anyModalOpen,
@@ -70,6 +71,7 @@ export function WishCard({
     canClose: !isPending,
     onClose: () => {
       setIsReserveModalOpen(false);
+      setIsUnreserveModalOpen(false);
       setIsGiftModalOpen(false);
       setIsDeleteModalOpen(false);
     }
@@ -108,8 +110,9 @@ export function WishCard({
     await runAction(reserveWish, wishFormData(), () => setIsReserveModalOpen(false));
   }
 
-  async function handleUnreserve() {
-    await runAction(unreserveWish, wishFormData(), () => undefined);
+  async function handleUnreserve(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    await runAction(unreserveWish, wishFormData(), () => setIsUnreserveModalOpen(false));
   }
 
   async function handleGift(e: React.FormEvent<HTMLFormElement>) {
@@ -199,7 +202,7 @@ export function WishCard({
                   <button
                     type="button"
                     className="btn-ghost btn-secondary--sm"
-                    onClick={handleUnreserve}
+                    onClick={() => { setActionError(null); setIsUnreserveModalOpen(true); }}
                     disabled={isPending}
                   >
                     <IconLockOpen size={14} /> Annuler
@@ -391,11 +394,11 @@ export function WishCard({
                       <button
                         type="button"
                         className="btn-ghost btn-secondary--sm w-full"
-                        onClick={handleUnreserve}
+                        onClick={() => { setActionError(null); setIsUnreserveModalOpen(true); }}
                         disabled={isPending}
                       >
                         <IconLockOpen size={15} />
-                        <span>{isPending ? "Annulation..." : "Annuler ma réservation"}</span>
+                        <span>Annuler ma réservation</span>
                       </button>
                     </>
                   )}
@@ -520,6 +523,73 @@ export function WishCard({
                     disabled={isPending}
                   >
                     {isPending ? "Réservation en cours..." : "Confirmer la réservation"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Modal Annuler la réservation */}
+        {isUnreserveModalOpen ? (
+          <div
+            className="modal-backdrop"
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isPending) {
+                setIsUnreserveModalOpen(false);
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Annuler la réservation"
+          >
+            <div className="modal-card modal-card--sm" ref={modalRef} tabIndex={-1}>
+              <div className="modal-card__header">
+                <div className="modal-card__identity">
+                  <div className="modal-card__icon-badge">
+                    <IconLockOpen size={18} />
+                  </div>
+                  <div>
+                    <span className="modal-card__subtitle">Réservation</span>
+                    <h2 className="modal-card__title">Annuler la réservation ?</h2>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="modal-close-btn"
+                  onClick={() => setIsUnreserveModalOpen(false)}
+                  disabled={isPending}
+                >
+                  <IconX size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleUnreserve} className="composer-form-inner">
+                {actionError ? (
+                  <div className="form-error-banner" role="alert">
+                    <span>{actionError}</span>
+                  </div>
+                ) : null}
+                <p className="modal-body-text">
+                  Tu t&apos;apprêtes à annuler ta réservation sur <strong>« {wish.title} »</strong>.
+                  Ce cadeau redeviendra disponible pour les autres.
+                </p>
+
+                <div className="modal-card__footer">
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => setIsUnreserveModalOpen(false)}
+                    disabled={isPending}
+                  >
+                    Garder ma réservation
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn-secondary"
+                    disabled={isPending}
+                  >
+                    {isPending ? "Annulation..." : "Confirmer l'annulation"}
                   </button>
                 </div>
               </form>
