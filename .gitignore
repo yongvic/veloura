@@ -9,6 +9,7 @@ dist
 .agents
 .impeccable
 .vercel
+.vercel-secret-backup.txt
 public/uploads/*
 !public/uploads/.gitkeep
 .env*
