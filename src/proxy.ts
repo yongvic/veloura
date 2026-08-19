@@ -1,28 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { getAuthSecret } from "@/lib/env";
 
 const PUBLIC_PATHS = ["/connexion", "/inscription"];
 
-function getSecret() {
-  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
-  if (secret && secret.length >= 16) {
-    return new TextEncoder().encode(secret);
-  }
-  return new TextEncoder().encode("veloura-dev-auth-secret");
-}
-
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const isPublic = PUBLIC_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`)
+  );
+
   try {
-    const { pathname } = request.nextUrl;
-    const isPublic = PUBLIC_PATHS.some(
-      (path) => pathname === path || pathname.startsWith(`${path}/`)
-    );
     const token = request.cookies.get("veloura_session")?.value;
 
     let role: string | null = null;
     if (token) {
       try {
-        const { payload } = await jwtVerify(token, getSecret());
+        const { payload } = await jwtVerify(token, getAuthSecret());
         role = typeof payload.role === "string" ? payload.role : null;
       } catch {
         role = null;
@@ -63,8 +57,14 @@ export async function proxy(request: NextRequest) {
     }
 
     return NextResponse.next();
-  } catch {
-    return NextResponse.next();
+  } catch (error) {
+    // Fail closed : une erreur inattendue dans le proxy ne doit jamais
+    // laisser passer une requête vers une page protégée.
+    console.error("proxy", error);
+    if (isPublic) return NextResponse.next();
+    const login = new URL("/connexion", request.url);
+    login.searchParams.set("next", pathname);
+    return NextResponse.redirect(login);
   }
 }
 

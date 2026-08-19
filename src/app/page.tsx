@@ -8,22 +8,20 @@ import {
   IconLock,
   IconSparkle
 } from "@/components/icons";
+import { LocalDate } from "@/components/local-date";
 import { SectionHeading } from "@/components/section-heading";
 import { StatusPill } from "@/components/status-pill";
 import { WishComposer } from "@/components/wish-composer";
 import { WishExplorer } from "@/components/wish-explorer";
-import { requireCouple } from "@/lib/guard";
-import { getDashboardData } from "@/lib/data";
-import { formatShortDate } from "@/lib/format";
-import type { AppRole } from "@/lib/types";
+import { getCoupleDashboard } from "@/lib/dashboard";
+import { formatPriceFcfa } from "@/lib/format";
 
 export default async function HomePage() {
-  const { session, user, recipientId } = await requireCouple();
-  const currentRole = session.role as AppRole;
-  const data = await getDashboardData(recipientId);
+  const { session, user, currentRole, data } = await getCoupleDashboard();
   const topWish = data.activeWishes[0];
-  const reservedCount = data.reservedWishes.length;
+  const topWishPrice = formatPriceFcfa(topWish?.priceFcfa);
   const partnerName = user.partner?.name ?? data.recipientName;
+  const canManage = currentRole === "RECIPIENT";
 
   return (
     <AppShell
@@ -36,12 +34,12 @@ export default async function HomePage() {
         <div className="hero-main shell-panel">
           <div className="hero-main__badge-row">
             <StatusPill tone="gold" icon={<IconSparkle size={13} />}>
-              {currentRole === "RECIPIENT" ? "Tes envies" : `Liste de ${partnerName}`}
+              {canManage ? "Tes envies" : `Liste de ${partnerName}`}
             </StatusPill>
           </div>
 
           <h1 className="hero-main__headline">
-            {currentRole === "RECIPIENT"
+            {canManage
               ? `${session.name}, note tes envies. ${partnerName} offrira avec attention.`
               : `Les envies de ${partnerName}, pour offrir juste.`}
           </h1>
@@ -59,12 +57,22 @@ export default async function HomePage() {
               </span>
             </Link>
 
-            <Link href="/wishes" className="hero-stat-card">
-              <span className="hero-stat-card__number">{reservedCount}</span>
-              <span className="hero-stat-card__label">
-                <IconLock size={14} /> Cadeaux réservés
-              </span>
-            </Link>
+            {/* La stat "réservés" est masquée pour elle : la surprise prime. */}
+            {canManage ? (
+              <Link href="/history" className="hero-stat-card">
+                <span className="hero-stat-card__number">{data.giftedWishes.length}</span>
+                <span className="hero-stat-card__label">
+                  <IconHeart size={14} /> Souvenirs
+                </span>
+              </Link>
+            ) : (
+              <Link href="/wishes" className="hero-stat-card">
+                <span className="hero-stat-card__number">{data.reservedWishes.length}</span>
+                <span className="hero-stat-card__label">
+                  <IconLock size={14} /> Cadeaux réservés
+                </span>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -89,6 +97,9 @@ export default async function HomePage() {
                 <StatusPill tone="neutral">
                   {topWish.occasion?.name ?? "Occasion libre"}
                 </StatusPill>
+                {topWishPrice ? (
+                  <span className="spotlight-price">{topWishPrice}</span>
+                ) : null}
               </div>
               <div className="spotlight-actions">
                 <Link href={`/wishes/${topWish.id}`} className="btn-primary btn-primary--sm w-full">
@@ -100,7 +111,11 @@ export default async function HomePage() {
           ) : (
             <div className="spotlight-empty">
               <h3>La liste attend sa première envie</h3>
-              <p>Ajoute une première idée cadeau pour lancer l’espace.</p>
+              <p>
+                {canManage
+                  ? "Ajoute une première idée cadeau pour lancer l’espace."
+                  : `${partnerName} n'a pas encore noté d'envie. Reviens bientôt !`}
+              </p>
             </div>
           )}
         </div>
@@ -139,7 +154,7 @@ export default async function HomePage() {
                   <Link href={`/occasions#${occasion.slug}`} className="occasion-quick-link">
                     <div className="occasion-quick-info">
                       <strong>{occasion.name}</strong>
-                      <span>{formatShortDate(occasion.eventDate)}</span>
+                      <span><LocalDate value={occasion.eventDate} /></span>
                     </div>
                     <StatusPill size="sm" tone={occasion.wishCount > 0 ? "accent" : "neutral"}>
                       {occasion.wishCount} {occasion.wishCount > 1 ? "envies" : "envie"}
@@ -191,7 +206,7 @@ export default async function HomePage() {
 
           <section className="insight-card shell-panel">
             <div className="insight-card__header">
-              <div className="insight-card__icon text-primary">
+              <div className="insight-card__icon">
                 <IconHeart size={18} />
               </div>
               <div>
@@ -208,7 +223,7 @@ export default async function HomePage() {
                   </Link>
                 </p>
                 <span className="memory-preview-date">
-                  {formatShortDate(data.giftedWishes[0].giftedAt)}
+                  <LocalDate value={data.giftedWishes[0].giftedAt} />
                 </span>
               </div>
             ) : (
@@ -225,7 +240,7 @@ export default async function HomePage() {
         </aside>
       </div>
 
-      <WishComposer occasions={data.occasions} />
+      {canManage ? <WishComposer occasions={data.occasions} /> : null}
     </AppShell>
   );
 }

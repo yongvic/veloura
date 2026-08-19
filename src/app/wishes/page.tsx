@@ -3,14 +3,10 @@ import { IconGift } from "@/components/icons";
 import { StatusPill } from "@/components/status-pill";
 import { WishComposer } from "@/components/wish-composer";
 import { WishExplorer } from "@/components/wish-explorer";
-import { getDashboardData } from "@/lib/data";
-import { requireCouple } from "@/lib/guard";
-import type { AppRole } from "@/lib/types";
+import { getCoupleDashboard } from "@/lib/dashboard";
 
 export default async function WishesPage() {
-  const { session, recipientId } = await requireCouple();
-  const currentRole = session.role as AppRole;
-  const data = await getDashboardData(recipientId);
+  const { session, currentRole, data } = await getCoupleDashboard();
   const allWishes = [...data.activeWishes, ...data.reservedWishes, ...data.giftedWishes];
 
   return (
@@ -38,7 +34,7 @@ export default async function WishesPage() {
         <WishExplorer wishes={allWishes} occasions={data.occasions} currentRole={currentRole} />
       </section>
 
-      <WishComposer occasions={data.occasions} />
+      {currentRole === "RECIPIENT" ? <WishComposer occasions={data.occasions} /> : null}
     </AppShell>
   );
 }

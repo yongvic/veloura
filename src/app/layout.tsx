@@ -35,7 +35,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className={sans.variable}>{children}</body>
+      <body className={sans.variable}>
+        <a href="#main-content" className="skip-link">
+          Aller au contenu principal
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

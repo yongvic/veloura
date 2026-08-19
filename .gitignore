@@ -13,3 +13,4 @@ public/uploads/*
 !public/uploads/.gitkeep
 .env*
 skills-lock.json
+tsconfig.tsbuildinfo

@@ -32,7 +32,8 @@ export function AppShell({
   backHref,
   backLabel,
   occasions = [],
-  userName
+  userName,
+  currentRole
 }: {
   children: ReactNode;
   activePath?: string;
@@ -45,6 +46,7 @@ export function AppShell({
   const pathname = usePathname();
   const currentPath = activePath ?? pathname;
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const canManage = currentRole === "RECIPIENT";
 
   return (
     <div className="shell-root">
@@ -78,14 +80,16 @@ export function AppShell({
         </nav>
 
         <div className="topbar__actions">
-          <button
-            type="button"
-            className="btn-primary btn-primary--sm header-cta-btn"
-            onClick={() => setIsComposerOpen(true)}
-          >
-            <IconPlus size={16} />
-            <span>Ajouter</span>
-          </button>
+          {canManage ? (
+            <button
+              type="button"
+              className="btn-primary btn-primary--sm header-cta-btn"
+              onClick={() => setIsComposerOpen(true)}
+            >
+              <IconPlus size={16} />
+              <span>Ajouter</span>
+            </button>
+          ) : null}
           <form action={signOut}>
             <button type="submit" className="icon-logout-btn" aria-label="Se déconnecter">
               <IconLogOut size={18} />
@@ -108,8 +112,8 @@ export function AppShell({
       </main>
 
       <nav className="mobile-bottom-nav" aria-label="Navigation mobile">
-        <div className="mobile-bottom-nav__container">
-          {navigationLinks.slice(0, 2).map((link) => {
+        <div className={`mobile-bottom-nav__container ${canManage ? "" : "mobile-bottom-nav__container--no-fab"}`}>
+          {(canManage ? navigationLinks.slice(0, 2) : navigationLinks.slice(0, 3)).map((link) => {
             const Icon = link.icon;
             const isActive = currentPath === link.href;
             return (
@@ -125,16 +129,18 @@ export function AppShell({
             );
           })}
 
-          <button
-            type="button"
-            className="mobile-fab-btn"
-            onClick={() => setIsComposerOpen(true)}
-            aria-label="Ajouter une nouvelle envie"
-          >
-            <IconPlus size={22} />
-          </button>
+          {canManage ? (
+            <button
+              type="button"
+              className="mobile-fab-btn"
+              onClick={() => setIsComposerOpen(true)}
+              aria-label="Ajouter une nouvelle envie"
+            >
+              <IconPlus size={22} />
+            </button>
+          ) : null}
 
-          {navigationLinks.slice(2).map((link) => {
+          {(canManage ? navigationLinks.slice(2) : navigationLinks.slice(3)).map((link) => {
             const Icon = link.icon;
             const isActive = currentPath === link.href;
             return (
@@ -152,11 +158,13 @@ export function AppShell({
         </div>
       </nav>
 
-      <WishComposerModal
-        occasions={occasions}
-        isOpen={isComposerOpen}
-        onClose={() => setIsComposerOpen(false)}
-      />
+      {canManage ? (
+        <WishComposerModal
+          occasions={occasions}
+          isOpen={isComposerOpen}
+          onClose={() => setIsComposerOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

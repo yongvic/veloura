@@ -3127,3 +3127,242 @@ h6 {
     scroll-behavior: auto !important;
   }
 }
+
+/* ────────────────────────────────────────────────────────────
+   Accessibilité : indicateurs de focus clavier
+   ──────────────────────────────────────────────────────────── */
+
+:where(a, button, [role="button"]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.filter-chip-select:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent) !important;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 200;
+  padding: 0.6rem 1rem;
+  background: var(--ink);
+  color: #ffffff;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transform: translateY(-300%);
+  transition: transform 160ms var(--ease-out);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Chargement (app/loading.tsx)
+   ──────────────────────────────────────────────────────────── */
+
+.loading-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding-top: 1rem;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--surface) 70%, transparent),
+    transparent
+  );
+  animation: skeleton-shimmer 1.4s infinite;
+}
+
+.skeleton-banner {
+  height: 11rem;
+  border-radius: var(--radius-xl);
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+.skeleton-card {
+  height: 18rem;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* ────────────────────────────────────────────────────────────
+   Navigation mobile sans FAB (rôle GIFTER)
+   ──────────────────────────────────────────────────────────── */
+
+.mobile-bottom-nav__container--no-fab {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+/* ────────────────────────────────────────────────────────────
+   Gestion des occasions (édition de date, création)
+   ──────────────────────────────────────────────────────────── */
+
+.page-header-banner__actions {
+  margin-top: 1.25rem;
+}
+
+.occasion-date-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--line);
+}
+
+.occasion-date-form__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.occasion-date-form__input {
+  width: auto;
+  flex: 0 1 auto;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.occasion-date-form__error {
+  font-size: 0.8rem;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.occasion-date-form__ok {
+  font-size: 0.8rem;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.occasion-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  text-align: left;
+}
+
+.occasion-create-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+/* ────────────────────────────────────────────────────────────
+   Édition des préférences
+   ──────────────────────────────────────────────────────────── */
+
+.preferences-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.preferences-edit-form__intro {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.preferences-edit-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.preferences-edit-form__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+}
+
+.preferences-edit-form__saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* ────────────────────────────────────────────────────────────
+   Actions admin sur un compte
+   ──────────────────────────────────────────────────────────── */
+
+.admin-user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.admin-user-actions__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.admin-temp-password {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-secondary);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.admin-temp-password code {
+  background: var(--surface-subtle);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}

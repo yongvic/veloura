@@ -1,8 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { deleteWish, markGifted, reserveWish } from "@/app/actions";
+import { useRef, useState } from "react";
+import { deleteWish, markGifted, reserveWish, unreserveWish } from "@/app/actions";
 import {
   IconBookmark,
   IconCheck,
@@ -11,13 +12,18 @@ import {
   IconGift,
   IconHeart,
   IconLock,
+  IconLockOpen,
+  IconPencil,
   IconSparkle,
   IconTrash,
   IconX
 } from "@/components/icons";
+import { LocalDate } from "@/components/local-date";
 import { StatusPill } from "@/components/status-pill";
-import { formatShortDate } from "@/lib/format";
-import type { WishPriority, WishSummary } from "@/lib/types";
+import { WishComposerModal } from "@/components/wish-composer-modal";
+import { useModalA11y } from "@/components/use-modal-a11y";
+import { formatPriceFcfa } from "@/lib/format";
+import type { OccasionSummary, WishPriority, WishSummary } from "@/lib/types";
 
 export const priorityConfig: Record<
   WishPriority,
@@ -38,63 +44,104 @@ export const reactionOptions = [
   "Un souvenir inoubliable"
 ];
 
+type ActionResult = { error?: string; ok?: boolean } | undefined;
+type WishAction = (formData: FormData) => Promise<ActionResult>;
+
 export function WishCard({
   wish,
   layout = "grid",
   compact = false,
   showActions = true,
-  currentRole = "RECIPIENT"
+  currentRole = "RECIPIENT",
+  occasions
 }: {
   wish: WishSummary;
   layout?: "grid" | "list";
   compact?: boolean;
   showActions?: boolean;
   currentRole?: "RECIPIENT" | "GIFTER";
+  occasions?: OccasionSummary[];
 }) {
   const [isReserveModalOpen, setIsReserveModalOpen] = useState(false);
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [selectedReaction, setSelectedReaction] = useState(
     wish.giftHistory?.reaction ?? reactionOptions[0]
   );
   const [customNote, setCustomNote] = useState(wish.giftHistory?.note ?? "");
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const isGifted = wish.status === "GIFTED";
   const isReserved = wish.status === "RESERVED";
   const canGift = currentRole === "GIFTER";
+  const canManage = currentRole === "RECIPIENT";
   const priorityInfo = priorityConfig[wish.priority] || priorityConfig.WOULD_LOVE;
+  const priceLabel = formatPriceFcfa(wish.priceFcfa);
+  const anyModalOpen = isReserveModalOpen || isGiftModalOpen || isDeleteModalOpen;
+
+  useModalA11y({
+    isOpen: anyModalOpen,
+    containerRef: modalRef,
+    canClose: !isPending,
+    onClose: () => {
+      setIsReserveModalOpen(false);
+      setIsGiftModalOpen(false);
+      setIsDeleteModalOpen(false);
+    }
+  });
+
+  async function runAction(action: WishAction, formData: FormData, closeModal: () => void) {
+    setIsPending(true);
+    setActionError(null);
+    try {
+      const result = await action(formData);
+      if (result?.error) {
+        setActionError(result.error);
+        return;
+      }
+      closeModal();
+    } catch {
+      setActionError("Connexion perdue. Vérifie ton réseau et réessaie.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  function wishFormData(extra?: Record<string, string>) {
+    const formData = new FormData();
+    formData.set("wishId", wish.id);
+    if (extra) {
+      for (const [key, value] of Object.entries(extra)) {
+        formData.set(key, value);
+      }
+    }
+    return formData;
+  }
 
   async function handleReserve(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setIsPending(true);
-    const formData = new FormData();
-    formData.set("wishId", wish.id);
-    await reserveWish(formData);
-    setIsPending(false);
-    setIsReserveModalOpen(false);
+    await runAction(reserveWish, wishFormData(), () => setIsReserveModalOpen(false));
+  }
+
+  async function handleUnreserve() {
+    await runAction(unreserveWish, wishFormData(), () => undefined);
   }
 
   async function handleGift(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setIsPending(true);
-    const formData = new FormData();
-    formData.set("wishId", wish.id);
-    formData.set("note", customNote);
-    formData.set("reaction", selectedReaction);
-    await markGifted(formData);
-    setIsPending(false);
-    setIsGiftModalOpen(false);
+    await runAction(
+      markGifted,
+      wishFormData({ note: customNote, reaction: selectedReaction }),
+      () => setIsGiftModalOpen(false)
+    );
   }
 
   async function handleDelete(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setIsPending(true);
-    const formData = new FormData();
-    formData.set("wishId", wish.id);
-    await deleteWish(formData);
-    setIsPending(false);
-    setIsDeleteModalOpen(false);
+    await runAction(deleteWish, wishFormData(), () => setIsDeleteModalOpen(false));
   }
 
   if (layout === "list") {
@@ -103,8 +150,7 @@ export function WishCard({
         <article className={`wish-list-row ${isReserved ? "is-reserved" : ""} ${isGifted ? "is-gifted" : ""}`}>
           <div className="wish-list-row__media">
             {wish.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={wish.imageUrl}
                 alt={wish.title}
                 width={80}
@@ -124,13 +170,13 @@ export function WishCard({
               <StatusPill tone={priorityInfo.tone} size="sm">
                 {priorityInfo.label}
               </StatusPill>
-              {isReserved ? (
-                <StatusPill tone="accent" size="sm" icon={<IconLock size={12} />}>
-                  Réservé
-                </StatusPill>
-              ) : isGifted ? (
+              {isGifted ? (
                 <StatusPill tone="success" size="sm" icon={<IconCheck size={12} />}>
                   Offert
+                </StatusPill>
+              ) : canGift && isReserved ? (
+                <StatusPill tone="accent" size="sm" icon={<IconLock size={12} />}>
+                  Réservé
                 </StatusPill>
               ) : null}
             </div>
@@ -146,6 +192,7 @@ export function WishCard({
             <div className="wish-list-row__occasion">
               <IconGift size={13} /> {wish.occasion?.name ?? "Occasion libre"}
             </div>
+            {priceLabel ? <span className="wish-list-row__price">{priceLabel}</span> : null}
           </div>
 
           {showActions ? (
@@ -157,26 +204,68 @@ export function WishCard({
                 <button
                   type="button"
                   className="btn-primary btn-primary--sm"
-                  onClick={() => setIsReserveModalOpen(true)}
+                  onClick={() => {
+                    setActionError(null);
+                    setIsReserveModalOpen(true);
+                  }}
                 >
                   <IconBookmark size={14} /> Réserver
                 </button>
               ) : null}
               {canGift && !isGifted && isReserved ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-ghost btn-secondary--sm"
+                    onClick={handleUnreserve}
+                    disabled={isPending}
+                  >
+                    <IconLockOpen size={14} /> Annuler
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-accent btn-accent--sm"
+                    onClick={() => {
+                      setActionError(null);
+                      setIsGiftModalOpen(true);
+                    }}
+                  >
+                    <IconCheck size={14} /> Offert
+                  </button>
+                </>
+              ) : null}
+              {canManage && !isGifted ? (
                 <button
                   type="button"
-                  className="btn-accent btn-accent--sm"
-                  onClick={() => setIsGiftModalOpen(true)}
+                  className="btn-ghost btn-secondary--sm"
+                  onClick={() => {
+                    setActionError(null);
+                    setIsDeleteModalOpen(true);
+                  }}
                 >
-                  <IconCheck size={14} /> Offert
+                  <IconTrash size={14} /> Retirer
                 </button>
               ) : null}
             </div>
           ) : null}
         </article>
 
-        {/* Modal Réserver */}
+        {actionError && !anyModalOpen ? (
+          <p className="form-error-banner" role="alert">
+            {actionError}
+          </p>
+        ) : null}
+
         {renderModals()}
+        {occasions ? (
+          <WishComposerModal
+            occasions={occasions}
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            initialOccasionId={wish.occasion?.id}
+            wish={wish}
+          />
+        ) : null}
       </>
     );
   }
@@ -191,10 +280,11 @@ export function WishCard({
         <div className="wish-card__media-wrap">
           <div className="wish-card__media">
             {wish.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={wish.imageUrl}
                 alt={wish.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 400px"
                 className="wish-card__image"
               />
             ) : (
@@ -205,7 +295,6 @@ export function WishCard({
                 <span className="wish-card__placeholder-cat">{wish.category}</span>
               </div>
             )}
-            <div className="wish-card__media-overlay" />
           </div>
 
           {/* Badges en superposition */}
@@ -217,7 +306,7 @@ export function WishCard({
               <StatusPill tone="success" size="sm" icon={<IconCheck size={13} />}>
                 Déjà offert
               </StatusPill>
-            ) : isReserved ? (
+            ) : canGift && isReserved ? (
               <StatusPill tone="accent" size="sm" icon={<IconLock size={13} />}>
                 Réservé en secret
               </StatusPill>
@@ -234,12 +323,13 @@ export function WishCard({
             <h3 className="wish-card__title">
               <Link href={`/wishes/${wish.id}`}>{wish.title}</Link>
             </h3>
+            {priceLabel ? <span className="wish-card__price-tag">{priceLabel}</span> : null}
           </div>
 
           {wish.description ? (
             <p className="wish-card__description">{wish.description}</p>
           ) : (
-            <p className="wish-card__description text-subtle">
+            <p className="wish-card__description">
               Une belle idée cadeau à conserver pour la prochaine occasion.
             </p>
           )}
@@ -251,7 +341,7 @@ export function WishCard({
             </div>
             <div className="wish-card__spec-item">
               <span className="spec-label"><IconClock size={13} /> Ajouté</span>
-              <span className="spec-val">{formatShortDate(wish.createdAt)}</span>
+              <span className="spec-val"><LocalDate value={wish.createdAt} /></span>
             </div>
           </div>
 
@@ -259,16 +349,22 @@ export function WishCard({
           {wish.giftHistory ? (
             <div className="wish-card__memory-box">
               <div className="memory-box__header">
-                <IconHeart size={14} className="text-primary" />
+                <IconHeart size={14} />
                 <strong>Souvenir : {wish.giftHistory.reaction ?? "Un moment magique"}</strong>
               </div>
               {wish.giftHistory.note ? (
                 <p className="memory-box__note">« {wish.giftHistory.note} »</p>
               ) : null}
               <span className="memory-box__date">
-                Offert le {formatShortDate(wish.giftHistory.giftedAt ?? wish.giftedAt)}
+                Offert le <LocalDate value={wish.giftHistory.giftedAt ?? wish.giftedAt} />
               </span>
             </div>
+          ) : null}
+
+          {actionError && !anyModalOpen && !isEditModalOpen ? (
+            <p className="form-error-banner" role="alert">
+              {actionError}
+            </p>
           ) : null}
 
           {showActions ? (
@@ -296,25 +392,68 @@ export function WishCard({
                     <button
                       type="button"
                       className="btn-secondary btn-secondary--sm w-full"
-                      onClick={() => setIsReserveModalOpen(true)}
+                      onClick={() => {
+                        setActionError(null);
+                        setIsReserveModalOpen(true);
+                      }}
                     >
                       <IconBookmark size={15} />
                       <span>Réserver en secret</span>
                     </button>
                   ) : (
-                    <div className="reserved-status-pill">
-                      <IconLock size={14} />
-                      <span>Réservé en mode discret{wish.reservedByName ? ` par ${wish.reservedByName}` : ""}</span>
-                    </div>
+                    <>
+                      <div className="reserved-status-pill">
+                        <IconLock size={14} />
+                        <span>Réservé en mode discret{wish.reservedByName ? ` par ${wish.reservedByName}` : ""}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-ghost btn-secondary--sm w-full"
+                        onClick={handleUnreserve}
+                        disabled={isPending}
+                      >
+                        <IconLockOpen size={15} />
+                        <span>{isPending ? "Annulation..." : "Annuler ma réservation"}</span>
+                      </button>
+                    </>
                   )}
 
                   <button
                     type="button"
                     className="btn-primary btn-primary--sm w-full"
-                    onClick={() => setIsGiftModalOpen(true)}
+                    onClick={() => {
+                      setActionError(null);
+                      setIsGiftModalOpen(true);
+                    }}
                   >
                     <IconCheck size={15} />
                     <span>Marquer comme offert</span>
+                  </button>
+                </div>
+              ) : null}
+
+              {canManage && !isGifted ? (
+                <div className="wish-card__cta-group">
+                  {occasions ? (
+                    <button
+                      type="button"
+                      className="btn-secondary btn-secondary--sm w-full"
+                      onClick={() => setIsEditModalOpen(true)}
+                    >
+                      <IconPencil size={15} />
+                      <span>Modifier</span>
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn-ghost btn-secondary--sm w-full"
+                    onClick={() => {
+                      setActionError(null);
+                      setIsDeleteModalOpen(true);
+                    }}
+                  >
+                    <IconTrash size={15} />
+                    <span>Retirer de la liste</span>
                   </button>
                 </div>
               ) : null}
@@ -324,6 +463,15 @@ export function WishCard({
       </article>
 
       {renderModals()}
+      {occasions ? (
+        <WishComposerModal
+          occasions={occasions}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          initialOccasionId={wish.occasion?.id}
+          wish={wish}
+        />
+      ) : null}
     </>
   );
 
@@ -341,8 +489,9 @@ export function WishCard({
             }}
             role="dialog"
             aria-modal="true"
+            aria-label="Réserver ce cadeau"
           >
-            <div className="modal-card modal-card--sm">
+            <div className="modal-card modal-card--sm" ref={modalRef} tabIndex={-1}>
               <div className="modal-card__header">
                 <div className="modal-card__identity">
                   <div className="modal-card__icon-badge">
@@ -364,6 +513,11 @@ export function WishCard({
               </div>
 
               <form onSubmit={handleReserve} className="composer-form-inner">
+                {actionError ? (
+                  <div className="form-error-banner" role="alert">
+                    <span>{actionError}</span>
+                  </div>
+                ) : null}
                 <p className="modal-body-text">
                   Tu t’apprêtes à réserver <strong>« {wish.title} »</strong>.
                   Ce cadeau sera marqué comme réservé pour éviter les doublons tout en gardant la surprise intacte.
@@ -402,8 +556,9 @@ export function WishCard({
             }}
             role="dialog"
             aria-modal="true"
+            aria-label="Marquer ce cadeau comme offert"
           >
-            <div className="modal-card">
+            <div className="modal-card" ref={modalRef} tabIndex={-1}>
               <div className="modal-card__header">
                 <div className="modal-card__identity">
                   <div className="modal-card__icon-badge">
@@ -425,6 +580,11 @@ export function WishCard({
               </div>
 
               <form onSubmit={handleGift} className="composer-form-inner">
+                {actionError ? (
+                  <div className="form-error-banner" role="alert">
+                    <span>{actionError}</span>
+                  </div>
+                ) : null}
                 <p className="modal-body-text">
                   Félicitations ! Tu as offert <strong>« {wish.title} »</strong>.
                   Cette attention rejoindra l’historique de vos moments précieux.
@@ -448,11 +608,11 @@ export function WishCard({
                 </div>
 
                 <div className="form-field">
-                  <label htmlFor="gift-note" className="form-label">
+                  <label htmlFor={`gift-note-${wish.id}`} className="form-label">
                     Note ou souvenir personnel <span className="label-subtext">(optionnel)</span>
                   </label>
                   <textarea
-                    id="gift-note"
+                    id={`gift-note-${wish.id}`}
                     rows={3}
                     value={customNote}
                     onChange={(e) => setCustomNote(e.target.value)}
@@ -495,11 +655,12 @@ export function WishCard({
             }}
             role="dialog"
             aria-modal="true"
+            aria-label="Retirer cette envie"
           >
-            <div className="modal-card modal-card--sm">
+            <div className="modal-card modal-card--sm" ref={modalRef} tabIndex={-1}>
               <div className="modal-card__header">
                 <div className="modal-card__identity">
-                  <div className="modal-card__icon-badge text-accent">
+                  <div className="modal-card__icon-badge">
                     <IconTrash size={18} />
                   </div>
                   <div>
@@ -518,6 +679,11 @@ export function WishCard({
               </div>
 
               <form onSubmit={handleDelete} className="composer-form-inner">
+                {actionError ? (
+                  <div className="form-error-banner" role="alert">
+                    <span>{actionError}</span>
+                  </div>
+                ) : null}
                 <p className="modal-body-text">
                   Es-tu sûr(e) de vouloir supprimer définitivement <strong>« {wish.title} »</strong> de la liste ?
                 </p>

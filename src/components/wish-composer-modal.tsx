@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { createWish } from "@/app/actions";
+import { createWish, updateWish } from "@/app/actions";
 import { IconCheck, IconGift, IconPlus, IconSparkle, IconTag, IconX } from "@/components/icons";
-import type { OccasionSummary, WishPriority } from "@/lib/types";
+import { useModalA11y } from "@/components/use-modal-a11y";
+import { MAX_PRICE_FCFA, WISH_CATEGORIES } from "@/lib/validation";
+import type { OccasionSummary, WishPriority, WishSummary } from "@/lib/types";
 
 const priorityOptions: Array<{ value: WishPriority; label: string; desc: string }> = [
   { value: "MUST_HAVE", label: "Indispensable", desc: "La priorité absolue" },
@@ -12,44 +14,101 @@ const priorityOptions: Array<{ value: WishPriority; label: string; desc: string 
   { value: "MAYBE_LATER", label: "Plus tard", desc: "Idée pour l'avenir" }
 ];
 
-const categoryOptions = [
-  "Mode",
-  "Bijoux",
-  "Beauté",
-  "Maison",
-  "Maroquinerie",
-  "Voyage",
-  "Tech",
-  "Surprise"
-];
-
 type ComposerState = { error?: string; ok?: boolean } | null;
+
+const MAX_FILE_SIZE_MB = 10;
+const MAX_DIMENSION = 1600;
+const JPEG_QUALITY = 0.85;
+
+/**
+ * Compression côté client avant upload : redimensionne à 1600px max et
+ * réencode en JPEG 0.85. Les GIF (animés) passent tels quels.
+ */
+async function compressImageFile(file: File): Promise<File> {
+  if (file.type === "image/gif" || typeof createImageBitmap === "undefined") {
+    return file;
+  }
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+
+    if (scale === 1 && file.type === "image/jpeg" && file.size < 600 * 1024) {
+      bitmap.close();
+      return file;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) {
+      bitmap.close();
+      return file;
+    }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY)
+    );
+    if (!blob) return file;
+
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, "")}.jpg`, {
+      type: "image/jpeg"
+    });
+  } catch {
+    return file;
+  }
+}
 
 export function WishComposerModal({
   occasions,
   isOpen,
   onClose,
-  initialOccasionId
+  initialOccasionId,
+  wish
 }: {
   occasions: OccasionSummary[];
   isOpen: boolean;
   onClose: () => void;
   initialOccasionId?: string;
+  wish?: WishSummary;
 }) {
+  const isEdit = Boolean(wish);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [successToast, setSuccessToast] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const successTimerRef = useRef<number | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
+
+  function resetLocalState() {
+    setPhotoPreview(null);
+    setPhotoError(null);
+    setSuccessToast(false);
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function closeAndReset() {
+    resetLocalState();
+    onClose();
+  }
 
   const [state, formAction, pending] = useActionState(
     async (_prev: ComposerState, formData: FormData): Promise<ComposerState> => {
-      const result = await createWish(formData);
+      const action = isEdit ? updateWish : createWish;
+      const result = await action(formData);
       if (result?.ok) {
-        setPhotoPreview(null);
         setSuccessToast(true);
-        setTimeout(() => {
-          setSuccessToast(false);
-          onClose();
+        successTimerRef.current = window.setTimeout(() => {
+          closeAndReset();
         }, 1200);
       }
       return result;
@@ -57,25 +116,69 @@ export function WishComposerModal({
     null
   );
 
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      setTimeout(() => titleInputRef.current?.focus(), 100);
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isOpen]);
+  useModalA11y({
+    isOpen,
+    containerRef: dialogRef,
+    onClose: closeAndReset,
+    initialFocusRef: titleInputRef,
+    canClose: !pending && !isCompressing
+  });
 
+  // Nettoyage du timer de succès et de l'URL de preview au démontage.
   useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && isOpen && !pending) onClose();
+    return () => {
+      if (successTimerRef.current !== null) {
+        window.clearTimeout(successTimerRef.current);
+      }
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    };
+  }, []);
+
+  function clearPhotoSelection() {
+    setPhotoPreview(null);
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
     }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose, pending]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    setPhotoError(null);
+    if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+      setPhotoError(`Image trop lourde (max ${MAX_FILE_SIZE_MB} Mo).`);
+      event.target.value = "";
+      return;
+    }
+
+    setIsCompressing(true);
+    try {
+      const compressed = await compressImageFile(file);
+      const transfer = new DataTransfer();
+      transfer.items.add(compressed);
+      if (fileInputRef.current) {
+        fileInputRef.current.files = transfer.files;
+      }
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+      const url = URL.createObjectURL(compressed);
+      previewUrlRef.current = url;
+      setPhotoPreview(url);
+    } catch {
+      // La compression est un bonus : en cas d'échec, on envoie l'original.
+      const url = URL.createObjectURL(file);
+      previewUrlRef.current = url;
+      setPhotoPreview(url);
+    } finally {
+      setIsCompressing(false);
+    }
+  }
 
   if (!isOpen) return null;
 
@@ -83,29 +186,31 @@ export function WishComposerModal({
     <div
       className="modal-backdrop"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !pending) onClose();
+        if (e.target === e.currentTarget && !pending && !isCompressing) closeAndReset();
       }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="composer-modal-title"
     >
-      <div className="modal-card">
+      <div className="modal-card" ref={dialogRef} tabIndex={-1}>
         <div className="modal-card__header">
           <div className="modal-card__identity">
             <div className="modal-card__icon-badge">
               <IconSparkle size={18} />
             </div>
             <div>
-              <span className="modal-card__subtitle">Nouvelle attention</span>
+              <span className="modal-card__subtitle">
+                {isEdit ? "Ajuster l'envie" : "Nouvelle attention"}
+              </span>
               <h2 id="composer-modal-title" className="modal-card__title">
-                Ajouter une envie
+                {isEdit ? "Modifier cette envie" : "Ajouter une envie"}
               </h2>
             </div>
           </div>
           <button
             type="button"
             className="modal-close-btn"
-            onClick={onClose}
+            onClick={closeAndReset}
             disabled={pending}
             aria-label="Fermer la fenêtre"
           >
@@ -118,8 +223,8 @@ export function WishComposerModal({
             <div className="composer-success-banner__icon">
               <IconCheck size={24} />
             </div>
-            <h3>Envie enregistrée</h3>
-            <p>Elle apparaît maintenant dans la liste.</p>
+            <h3>{isEdit ? "Envie mise à jour" : "Envie enregistrée"}</h3>
+            <p>{isEdit ? "Les modifications sont visibles dans la liste." : "Elle apparaît maintenant dans la liste."}</p>
           </div>
         ) : (
           <form action={formAction} className="composer-form-inner">
@@ -128,6 +233,8 @@ export function WishComposerModal({
                 <span>{state.error}</span>
               </div>
             ) : null}
+
+            {isEdit ? <input type="hidden" name="wishId" value={wish?.id} /> : null}
 
             <div className="form-field">
               <label htmlFor="wish-title" className="form-label">
@@ -138,9 +245,11 @@ export function WishComposerModal({
                 ref={titleInputRef}
                 name="title"
                 required
+                maxLength={120}
                 placeholder="Ex: Mini sac prune, Parfum fleur d'oranger..."
-                className="form-input text-lg"
+                className="form-input"
                 disabled={pending}
+                defaultValue={wish?.title}
               />
             </div>
 
@@ -152,11 +261,11 @@ export function WishComposerModal({
                 <select
                   id="wish-category"
                   name="category"
-                  defaultValue="Mode"
+                  defaultValue={wish?.category ?? "Mode"}
                   className="form-select"
                   disabled={pending}
                 >
-                  {categoryOptions.map((cat) => (
+                  {WISH_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat}
                     </option>
@@ -171,7 +280,7 @@ export function WishComposerModal({
                 <select
                   id="wish-priority"
                   name="priority"
-                  defaultValue="WOULD_LOVE"
+                  defaultValue={wish?.priority ?? "WOULD_LOVE"}
                   className="form-select"
                   disabled={pending}
                 >
@@ -192,7 +301,7 @@ export function WishComposerModal({
                 <select
                   id="wish-occasion"
                   name="occasionId"
-                  defaultValue={initialOccasionId ?? ""}
+                  defaultValue={wish?.occasion?.id ?? initialOccasionId ?? ""}
                   className="form-select"
                   disabled={pending}
                 >
@@ -206,34 +315,63 @@ export function WishComposerModal({
               </div>
 
               <div className="form-field">
-                <label htmlFor="wish-product-url" className="form-label">
-                  Lien boutique
+                <label htmlFor="wish-price" className="form-label">
+                  Prix estimé (FCFA)
                 </label>
                 <input
-                  id="wish-product-url"
-                  name="productUrl"
-                  type="url"
-                  placeholder="https://..."
+                  id="wish-price"
+                  name="priceFcfa"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={MAX_PRICE_FCFA}
+                  step={100}
+                  placeholder="Ex: 25000"
                   className="form-input"
                   disabled={pending}
+                  defaultValue={wish?.priceFcfa ?? ""}
                 />
               </div>
             </div>
 
+            <div className="form-field">
+              <label htmlFor="wish-product-url" className="form-label">
+                Lien boutique <span className="label-subtext">(optionnel)</span>
+              </label>
+              <input
+                id="wish-product-url"
+                name="productUrl"
+                type="url"
+                placeholder="https://..."
+                maxLength={2000}
+                className="form-input"
+                disabled={pending}
+                defaultValue={wish?.productUrl ?? ""}
+              />
+            </div>
+
             <div className="form-field photo-dropzone-block">
-              <label className="form-label">Photo du cadeau</label>
+              <label className="form-label">
+                Photo du cadeau{" "}
+                <span className="label-subtext">
+                  (max {MAX_FILE_SIZE_MB} Mo, compressée automatiquement)
+                </span>
+              </label>
+              {isEdit && !photoPreview && wish?.imageUrl ? (
+                <p className="photo-upload-hint">
+                  La photo actuelle est conservée si tu n’en choisis pas une autre.
+                </p>
+              ) : null}
               {photoPreview ? (
                 <div className="photo-preview-box">
+                  {/* Preview local (URL objet) : next/image n'est pas utilisable ici */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={photoPreview} alt="Aperçu du cadeau" className="preview-img" />
                   <button
                     type="button"
                     className="photo-remove-btn"
-                    onClick={() => {
-                      setPhotoPreview(null);
-                      if (fileInputRef.current) fileInputRef.current.value = "";
-                    }}
-                    disabled={pending}
+                    onClick={clearPhotoSelection}
+                    disabled={pending || isCompressing}
                   >
                     <IconX size={16} /> Changer de photo
                   </button>
@@ -246,11 +384,8 @@ export function WishComposerModal({
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
                     className="photo-file-input"
-                    disabled={pending}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) setPhotoPreview(URL.createObjectURL(file));
-                    }}
+                    disabled={pending || isCompressing}
+                    onChange={handlePhotoChange}
                   />
                   <div className="photo-dropzone-content">
                     <div className="photo-upload-icon">
@@ -258,13 +393,21 @@ export function WishComposerModal({
                     </div>
                     <div>
                       <p className="photo-upload-main">
-                        <strong>Choisis une photo</strong> depuis l’appareil
+                        <strong>
+                          {isCompressing ? "Optimisation de l'image..." : "Choisis une photo"}
+                        </strong>{" "}
+                        depuis l’appareil
                       </p>
-                      <p className="photo-upload-hint">JPG, PNG, WEBP jusqu’à 4,5 Mo</p>
+                      <p className="photo-upload-hint">JPG, PNG, WEBP ou GIF</p>
                     </div>
                   </div>
                 </div>
               )}
+              {photoError ? (
+                <p className="form-error-banner" role="alert">
+                  <span>{photoError}</span>
+                </p>
+              ) : null}
             </div>
 
             <div className="form-field">
@@ -275,18 +418,24 @@ export function WishComposerModal({
                 id="wish-description"
                 name="description"
                 rows={3}
+                maxLength={2000}
                 placeholder="Ex: Taille 38, couleur prune ou bordeaux, modèle en cuir lisse..."
                 className="form-textarea"
                 disabled={pending}
+                defaultValue={wish?.description ?? ""}
               />
             </div>
 
             <div className="modal-card__footer">
-              <button type="button" className="btn-ghost" onClick={onClose} disabled={pending}>
+              <button type="button" className="btn-ghost" onClick={closeAndReset} disabled={pending}>
                 Annuler
               </button>
-              <button type="submit" className="btn-primary" disabled={pending}>
-                {pending ? "Enregistrement..." : "Enregistrer l'envie"}
+              <button type="submit" className="btn-primary" disabled={pending || isCompressing}>
+                {pending
+                  ? "Enregistrement..."
+                  : isEdit
+                    ? "Enregistrer les modifications"
+                    : "Enregistrer l'envie"}
               </button>
             </div>
           </form>

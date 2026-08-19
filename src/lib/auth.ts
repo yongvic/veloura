@@ -3,6 +3,7 @@ import { promisify } from "node:util";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import type { UserRole } from "@prisma/client";
+import { getAuthSecret } from "@/lib/env";
 
 const scrypt = promisify(scryptCallback);
 
@@ -15,14 +16,6 @@ export type SessionUser = {
   name: string;
   role: UserRole;
 };
-
-function getSecret() {
-  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
-  if (secret && secret.length >= 16) {
-    return new TextEncoder().encode(secret);
-  }
-  return new TextEncoder().encode("veloura-dev-auth-secret");
-}
 
 export async function hashPassword(password: string) {
   const salt = randomBytes(16).toString("hex");
@@ -53,12 +46,12 @@ export async function createSessionToken(user: SessionUser) {
     .setSubject(user.userId)
     .setIssuedAt()
     .setExpirationTime(`${SESSION_DAYS}d`)
-    .sign(getSecret());
+    .sign(getAuthSecret());
 }
 
 export async function readSessionToken(token: string): Promise<SessionUser | null> {
   try {
-    const { payload } = await jwtVerify(token, getSecret());
+    const { payload } = await jwtVerify(token, getAuthSecret());
     if (!payload.sub || !payload.email || !payload.name || !payload.role) {
       return null;
     }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getSession, hashPassword, type SessionUser } from "@/lib/auth";
+import { getSession, hashPassword, verifyPassword, type SessionUser } from "@/lib/auth";
 import { hasDatabase } from "@/lib/env";
 
 const DEFAULT_OCCASIONS = [
@@ -10,6 +10,12 @@ const DEFAULT_OCCASIONS = [
   { name: "Surprise", slug: "surprise", description: "Sans date spéciale, juste pour faire plaisir" }
 ];
 
+/**
+ * Bootstrap/réparation du compte admin. Idempotent. Si ADMIN_PASSWORD a
+ * changé depuis la création, le hash est régénéré (rotation effective).
+ * Appelé au démarrage (instrumentation) et via `npm run bootstrap:admin`,
+ * jamais dans le hot path d'une requête utilisateur.
+ */
 export async function ensureAdminUser() {
   if (!hasDatabase()) return;
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
@@ -18,10 +24,15 @@ export async function ensureAdminUser() {
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    if (existing.role !== "ADMIN") {
+    const passwordStillValid = await verifyPassword(password, existing.passwordHash);
+    if (existing.role !== "ADMIN" || !passwordStillValid) {
       await prisma.user.update({
         where: { id: existing.id },
-        data: { role: "ADMIN", partnerId: null }
+        data: {
+          role: "ADMIN",
+          partnerId: null,
+          ...(passwordStillValid ? {} : { passwordHash: await hashPassword(password) })
+        }
       });
     }
     return;
@@ -49,10 +60,22 @@ export async function ensureDefaultOccasions(recipientId: string) {
   });
 }
 
+/**
+ * Garde de session stricte : le JWT seul ne suffit pas. L'utilisateur
+ * doit encore exister en base, et le rôle retourné est celui de la base
+ * (un JWT de 30 jours peut être périmé après une promotion/rétrogradation).
+ */
 export async function requireUser(): Promise<SessionUser> {
   const session = await getSession();
   if (!session) redirect("/connexion");
-  return session;
+
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { role: true }
+  });
+  if (!dbUser) redirect("/connexion");
+
+  return { ...session, role: dbUser.role };
 }
 
 export async function requireAdmin(): Promise<SessionUser> {
@@ -61,36 +84,22 @@ export async function requireAdmin(): Promise<SessionUser> {
   return session;
 }
 
-export type CoupleUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: "RECIPIENT" | "GIFTER" | "ADMIN";
-  partnerId: string | null;
-  partner: { id: string; name: string; email: string; role: "RECIPIENT" | "GIFTER" | "ADMIN" } | null;
-};
-
 export async function requireCouple() {
-  const session = await requireUser();
+  const session = await getSession();
+  if (!session) redirect("/connexion");
   if (session.role === "ADMIN") redirect("/admin");
 
-  let user;
-  try {
-    user = await prisma.user.findUnique({
-      where: { id: session.userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        partnerId: true,
-        partner: { select: { id: true, name: true, email: true, role: true } }
-      }
-    });
-  } catch (error) {
-    console.error("requireCouple", error);
-    throw error;
-  }
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      partnerId: true,
+      partner: { select: { id: true, name: true, email: true, role: true } }
+    }
+  });
 
   if (!user) {
     redirect("/connexion");
@@ -101,20 +110,6 @@ export async function requireCouple() {
   }
 
   const recipientId = user.role === "RECIPIENT" ? user.id : user.partner.id;
-  try {
-    if (user.role === "RECIPIENT") {
-      await ensureDefaultOccasions(user.id);
-    } else {
-      await ensureDefaultOccasions(recipientId);
-    }
-  } catch (error) {
-    console.error("ensureDefaultOccasions", error);
-  }
 
   return { session, user, recipientId };
-}
-
-export function getRecipientId(user: CoupleUser) {
-  if (user.role === "RECIPIENT") return user.id;
-  return user.partnerId as string;
 }

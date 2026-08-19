@@ -1,27 +1,20 @@
-import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import {
-  IconArrowRight,
   IconCalendar,
   IconClock,
-  IconGift,
-  IconPlus,
-  IconSparkle
+  IconGift
 } from "@/components/icons";
-import { SectionHeading } from "@/components/section-heading";
+import { LocalDate } from "@/components/local-date";
+import { OccasionCreator, OccasionDateEditor } from "@/components/occasion-manager";
 import { StatusPill } from "@/components/status-pill";
 import { WishCard } from "@/components/wish-card";
 import { WishComposer } from "@/components/wish-composer";
-import { getDashboardData } from "@/lib/data";
-import { requireCouple } from "@/lib/guard";
-import { formatShortDate } from "@/lib/format";
-import type { AppRole } from "@/lib/types";
+import { getCoupleDashboard } from "@/lib/dashboard";
 
 export default async function OccasionsPage() {
-  const { session, recipientId } = await requireCouple();
-  const currentRole = session.role as AppRole;
-  const data = await getDashboardData(recipientId);
+  const { session, currentRole, data } = await getCoupleDashboard();
   const allWishes = [...data.activeWishes, ...data.reservedWishes, ...data.giftedWishes];
+  const canManage = currentRole === "RECIPIENT";
 
   return (
     <AppShell activePath="/occasions" occasions={data.occasions} userName={session.name} currentRole={currentRole}>
@@ -37,6 +30,11 @@ export default async function OccasionsPage() {
             Anniversaire, Noël, Saint-Valentin ou douce surprise du quotidien :
             chaque occasion crée son propre rythme pour faire plaisir au bon moment.
           </p>
+          {canManage ? (
+            <div className="page-header-banner__actions">
+              <OccasionCreator />
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -79,13 +77,15 @@ export default async function OccasionsPage() {
               <div className="occasion-panel__date-strip">
                 <span className="date-strip-item">
                   <IconCalendar size={14} />
-                  <strong>{formatShortDate(occasion.eventDate)}</strong>
+                  <strong><LocalDate value={occasion.eventDate} /></strong>
                 </span>
                 <span className="date-strip-slug">
                   <IconClock size={14} />
                   <span>{occasion.eventDate ? "Date fixée" : "Tout au long de l'année"}</span>
                 </span>
               </div>
+
+              {canManage ? <OccasionDateEditor occasion={occasion} /> : null}
 
               {/* Associated Wishes Grid */}
               {associatedWishes.length > 0 ? (
@@ -98,6 +98,7 @@ export default async function OccasionsPage() {
                         wish={wish}
                         currentRole={currentRole}
                         compact
+                        occasions={data.occasions}
                       />
                     ))}
                   </div>
@@ -112,7 +113,7 @@ export default async function OccasionsPage() {
         })}
       </div>
 
-      <WishComposer occasions={data.occasions} />
+      {canManage ? <WishComposer occasions={data.occasions} /> : null}
     </AppShell>
   );
 }

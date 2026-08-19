@@ -1,12 +1,4 @@
-export function formatShortDate(value: Date | string | null | undefined) {
-  if (!value) {
-    return "Date flexible";
-  }
-
-  const date = typeof value === "string" ? new Date(value) : value;
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "numeric",
-    month: "short",
-    year: "numeric"
-  }).format(date);
+export function formatPriceFcfa(value: number | null | undefined) {
+  if (value === null || value === undefined) return null;
+  return `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(value)} FCFA`;
 }

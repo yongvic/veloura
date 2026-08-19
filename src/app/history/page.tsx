@@ -4,14 +4,10 @@ import { IconGift, IconHeart, IconSparkle } from "@/components/icons";
 import { SectionHeading } from "@/components/section-heading";
 import { StatusPill } from "@/components/status-pill";
 import { WishCard } from "@/components/wish-card";
-import { getDashboardData } from "@/lib/data";
-import { requireCouple } from "@/lib/guard";
-import type { AppRole } from "@/lib/types";
+import { getCoupleDashboard } from "@/lib/dashboard";
 
 export default async function HistoryPage() {
-  const { session, recipientId } = await requireCouple();
-  const currentRole = session.role as AppRole;
-  const data = await getDashboardData(recipientId);
+  const { session, currentRole, data } = await getCoupleDashboard();
   const giftedWishes = data.giftedWishes;
 
   return (
@@ -58,7 +54,7 @@ export default async function HistoryPage() {
         </div>
       ) : (
         <div className="history-empty-state shell-panel">
-          <div className="empty-icon-wrap text-primary">
+          <div className="empty-icon-wrap">
             <IconHeart size={36} />
           </div>
           <h3>Aucun cadeau archivé pour le moment</h3>

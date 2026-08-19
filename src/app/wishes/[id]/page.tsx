@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
@@ -12,13 +13,12 @@ import {
   IconSparkle,
   IconTag
 } from "@/components/icons";
+import { LocalDate } from "@/components/local-date";
 import { SectionHeading } from "@/components/section-heading";
 import { StatusPill } from "@/components/status-pill";
 import { WishCard, priorityConfig } from "@/components/wish-card";
-import { getDashboardData } from "@/lib/data";
-import { requireCouple } from "@/lib/guard";
-import { formatShortDate } from "@/lib/format";
-import type { AppRole } from "@/lib/types";
+import { getCoupleDashboard } from "@/lib/dashboard";
+import { formatPriceFcfa } from "@/lib/format";
 
 export default async function WishDetailPage({
   params
@@ -26,9 +26,7 @@ export default async function WishDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { session, recipientId } = await requireCouple();
-  const currentRole = session.role as AppRole;
-  const data = await getDashboardData(recipientId);
+  const { session, currentRole, data } = await getCoupleDashboard();
   const allWishes = [...data.activeWishes, ...data.reservedWishes, ...data.giftedWishes];
   const wish = allWishes.find((entry) => entry.id === id);
 
@@ -38,7 +36,9 @@ export default async function WishDetailPage({
 
   const isGifted = wish.status === "GIFTED";
   const isReserved = wish.status === "RESERVED";
+  const canGift = currentRole === "GIFTER";
   const priorityInfo = priorityConfig[wish.priority] || priorityConfig.WOULD_LOVE;
+  const priceLabel = formatPriceFcfa(wish.priceFcfa);
 
   // Find related wishes
   const relatedWishes = allWishes.filter(
@@ -69,11 +69,13 @@ export default async function WishDetailPage({
         <div className="wish-detail-media shell-panel">
           <div className="wish-detail-image-wrap">
             {wish.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={wish.imageUrl}
                 alt={wish.title}
+                fill
+                sizes="(max-width: 980px) 100vw, 560px"
                 className="wish-detail-image"
+                priority
               />
             ) : (
               <div className="wish-detail-placeholder">
@@ -83,21 +85,23 @@ export default async function WishDetailPage({
             )}
           </div>
 
-          {/* Status highlight strip */}
+          {/* Status highlight strip — le statut "réservé" n'apparaît jamais pour elle */}
           <div className="wish-detail-status-strip">
             <StatusPill tone={priorityInfo.tone} icon={<IconSparkle size={13} />}>
               {priorityInfo.label}
             </StatusPill>
             {isGifted ? (
               <StatusPill tone="success" icon={<IconCheck size={13} />}>
-                Déjà offert le {formatShortDate(wish.giftedAt)}
+                Déjà offert le <LocalDate value={wish.giftedAt} />
               </StatusPill>
-            ) : isReserved ? (
+            ) : canGift && isReserved ? (
               <StatusPill tone="accent" icon={<IconLock size={13} />}>
                 Réservé en mode discret
               </StatusPill>
             ) : (
-              <StatusPill tone="neutral">Disponible pour achat</StatusPill>
+              <StatusPill tone="neutral">
+                {canGift ? "Disponible pour achat" : "Toujours sur ta liste"}
+              </StatusPill>
             )}
           </div>
         </div>
@@ -121,6 +125,13 @@ export default async function WishDetailPage({
             </div>
 
             <h1 className="wish-detail-title">{wish.title}</h1>
+
+            {priceLabel ? (
+              <div className="wish-detail-price-box">
+                <span className="detail-price-label">Budget indicatif</span>
+                <span className="detail-price-amount">{priceLabel}</span>
+              </div>
+            ) : null}
 
             {/* Description / Story */}
             <div className="wish-detail-desc-block">
@@ -161,7 +172,7 @@ export default async function WishDetailPage({
                 <span className="spec-icon"><IconClock size={16} /></span>
                 <div>
                   <span className="spec-title">Ajouté le</span>
-                  <strong className="spec-value">{formatShortDate(wish.createdAt)}</strong>
+                  <strong className="spec-value"><LocalDate value={wish.createdAt} /></strong>
                 </div>
               </div>
             </div>
@@ -188,6 +199,7 @@ export default async function WishDetailPage({
                 currentRole={currentRole}
                 compact
                 showActions={true}
+                occasions={data.occasions}
               />
             </div>
           </div>
@@ -196,7 +208,7 @@ export default async function WishDetailPage({
           {wish.giftHistory ? (
             <div className="wish-detail-memory-card shell-panel">
               <div className="memory-card-head">
-                <IconHeart size={20} className="text-primary" />
+                <IconHeart size={20} />
                 <div>
                   <span className="memory-card-kicker">Souvenir immortalisé</span>
                   <h3 className="memory-card-title">
@@ -210,7 +222,7 @@ export default async function WishDetailPage({
               ) : null}
 
               <span className="memory-card-date">
-                Offert avec amour le {formatShortDate(wish.giftHistory.giftedAt ?? wish.giftedAt)}
+                Offert avec amour le <LocalDate value={wish.giftHistory.giftedAt ?? wish.giftedAt} />
               </span>
             </div>
           ) : null}
@@ -232,6 +244,7 @@ export default async function WishDetailPage({
                 wish={rel}
                 currentRole={currentRole}
                 compact
+                occasions={data.occasions}
               />
             ))}
           </div>

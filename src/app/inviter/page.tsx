@@ -41,8 +41,9 @@ export default async function InviterPage() {
           </div>
         </div>
         <p className="auth-lead">
-          Veloura relie deux comptes. Envoie une invitation à son e-mail, puis partage le lien.
-          Tant que l’invitation n’est pas acceptée, la liste reste privée.
+          Veloura relie deux comptes. Indique son e-mail pour générer un lien d’invitation,
+          puis transmets-le-lui toi-même (message, WhatsApp…). Tant que l’invitation n’est
+          pas acceptée, la liste reste privée.
         </p>
 
         <InviteForm defaultEmail={pendingInvite?.email} />

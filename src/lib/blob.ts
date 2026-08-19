@@ -40,6 +40,12 @@ export async function uploadWishPhoto(file: File | null): Promise<{
     throw new Error("Le stockage photo n'est pas encore branché. Ajoute BLOB_READ_WRITE_TOKEN.");
   }
 
+  // Le fallback disque n'a de sens qu'en dev : en `next start`, public/ est
+  // figé au build et un fichier écrit après coup ne serait jamais servi.
+  if (process.env.NODE_ENV !== "development") {
+    throw new Error("Le stockage photo n'est pas disponible sur cet environnement.");
+  }
+
   const { mkdir, writeFile } = await import("node:fs/promises");
   const path = await import("node:path");
   const uploadsDir = path.join(process.cwd(), "public", "uploads");

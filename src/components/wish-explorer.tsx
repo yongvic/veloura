@@ -17,6 +17,9 @@ import { WishComposerModal } from "@/components/wish-composer-modal";
 import type { AppRole, OccasionSummary, WishPriority, WishSummary } from "@/lib/types";
 
 export type SortOption = "priority" | "recent";
+type StatusFilter = "all" | "active-only" | "active-reserved" | "reserved-only" | "gifted-only";
+
+const DEFAULT_STATUS_FILTER: StatusFilter = "active-reserved";
 
 const priorityOrder: Record<WishPriority, number> = {
   MUST_HAVE: 1,
@@ -28,26 +31,21 @@ const priorityOrder: Record<WishPriority, number> = {
 export function WishExplorer({
   wishes,
   occasions,
-  currentRole,
-  initialOccasionSlug,
-  initialStatusFilter = "active-reserved"
+  currentRole
 }: {
   wishes: WishSummary[];
   occasions: OccasionSummary[];
   currentRole: AppRole;
-  initialOccasionSlug?: string;
-  initialStatusFilter?: "all" | "active-only" | "active-reserved" | "reserved-only" | "gifted-only";
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedOccasion, setSelectedOccasion] = useState<string>(
-    initialOccasionSlug ?? "all"
-  );
+  const [selectedOccasion, setSelectedOccasion] = useState<string>("all");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [selectedPriority, setSelectedPriority] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(DEFAULT_STATUS_FILTER);
   const [sortBy, setSortBy] = useState<SortOption>("priority");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const canManage = currentRole === "RECIPIENT";
 
   // Extract unique categories from actual wishes
   const categories = useMemo(() => {
@@ -119,15 +117,14 @@ export function WishExplorer({
     if (selectedOccasion !== "all") count++;
     if (selectedCategory !== "all") count++;
     if (selectedPriority !== "all") count++;
-    if (statusFilter !== initialStatusFilter) count++;
+    if (statusFilter !== DEFAULT_STATUS_FILTER) count++;
     return count;
   }, [
     searchQuery,
     selectedOccasion,
     selectedCategory,
     selectedPriority,
-    statusFilter,
-    initialStatusFilter
+    statusFilter
   ]);
 
   function resetAllFilters() {
@@ -135,7 +132,7 @@ export function WishExplorer({
     setSelectedOccasion("all");
     setSelectedCategory("all");
     setSelectedPriority("all");
-    setStatusFilter(initialStatusFilter);
+    setStatusFilter(DEFAULT_STATUS_FILTER);
     setSortBy("priority");
   }
 
@@ -191,20 +188,43 @@ export function WishExplorer({
               </button>
             </div>
 
-            {/* Add Wish CTA */}
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => setIsComposerOpen(true)}
-            >
-              <IconPlus size={18} />
-              <span>Ajouter</span>
-            </button>
+            {/* Add Wish CTA — réservé à celle qui note ses envies */}
+            {canManage ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setIsComposerOpen(true)}
+              >
+                <IconPlus size={18} />
+                <span>Ajouter</span>
+              </button>
+            ) : null}
           </div>
         </div>
 
         {/* Filter Chips row */}
         <div className="explorer-filters-row">
+          {/* Status Filter */}
+          <div className="filter-dropdown-wrap">
+            <label htmlFor="filter-status" className="filter-chip-label">
+              <IconSliders size={14} /> Statut
+            </label>
+            <select
+              id="filter-status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+              className="filter-chip-select"
+            >
+              <option value="active-reserved">En cours</option>
+              <option value="active-only">Disponibles</option>
+              {currentRole === "GIFTER" ? (
+                <option value="reserved-only">Réservées</option>
+              ) : null}
+              <option value="gifted-only">Déjà offertes</option>
+              <option value="all">Toutes</option>
+            </select>
+          </div>
+
           {/* Occasion Filter */}
           <div className="filter-dropdown-wrap">
             <label htmlFor="filter-occ" className="filter-chip-label">
@@ -311,6 +331,7 @@ export function WishExplorer({
               wish={wish}
               currentRole={currentRole}
               layout={viewMode}
+              occasions={occasions}
             />
           ))}
         </div>
@@ -324,7 +345,9 @@ export function WishExplorer({
           <p className="empty-state-desc">
             {activeFiltersCount > 0
               ? "Essaie d'élargir tes filtres d'occasion ou de catégorie."
-              : "La liste est encore vide pour le moment. Ajoute la première idée pour démarrer !"}
+              : canManage
+                ? "La liste est encore vide pour le moment. Ajoute la première idée pour démarrer !"
+                : "La liste est encore vide pour le moment. Reviens bientôt !"}
           </p>
           <div className="empty-state-actions">
             {activeFiltersCount > 0 ? (
@@ -336,23 +359,27 @@ export function WishExplorer({
                 <IconRefresh size={16} /> Effacer les filtres
               </button>
             ) : null}
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => setIsComposerOpen(true)}
-            >
-              <IconPlus size={16} /> Ajouter une envie
-            </button>
+            {canManage ? (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => setIsComposerOpen(true)}
+              >
+                <IconPlus size={16} /> Ajouter une envie
+              </button>
+            ) : null}
           </div>
         </div>
       )}
 
       {/* Modal Composer */}
-      <WishComposerModal
-        occasions={occasions}
-        isOpen={isComposerOpen}
-        onClose={() => setIsComposerOpen(false)}
-      />
+      {canManage ? (
+        <WishComposerModal
+          occasions={occasions}
+          isOpen={isComposerOpen}
+          onClose={() => setIsComposerOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

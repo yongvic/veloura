@@ -2,8 +2,6 @@ import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import {
   IconArrowRight,
-  IconBookmark,
-  IconCheck,
   IconGift,
   IconHeart,
   IconSparkle,
@@ -11,11 +9,9 @@ import {
   IconUser,
   IconX
 } from "@/components/icons";
-import { SectionHeading } from "@/components/section-heading";
+import { PreferencesForm } from "@/components/preferences-form";
 import { StatusPill } from "@/components/status-pill";
-import { getDashboardData } from "@/lib/data";
-import { requireCouple } from "@/lib/guard";
-import type { AppRole } from "@/lib/types";
+import { getCoupleDashboard } from "@/lib/dashboard";
 
 const preferenceSections = [
   {
@@ -61,10 +57,9 @@ const preferenceSections = [
 ];
 
 export default async function PreferencesPage() {
-  const { session, recipientId } = await requireCouple();
-  const currentRole = session.role as AppRole;
-  const data = await getDashboardData(recipientId);
+  const { session, currentRole, data } = await getCoupleDashboard();
   const preferences = data.preferences;
+  const canManage = currentRole === "RECIPIENT";
 
   return (
     <AppShell activePath="/preferences" occasions={data.occasions} userName={session.name} currentRole={currentRole}>
@@ -82,6 +77,8 @@ export default async function PreferencesPage() {
           </p>
         </div>
       </section>
+
+      {canManage ? <PreferencesForm preferences={preferences} /> : null}
 
       {/* Preferences Cards Grid */}
       <div className="preferences-board-grid">

@@ -15,10 +15,13 @@ import {
   type SessionUser
 } from "@/lib/auth";
 import { hasDatabase } from "@/lib/env";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { ensureAdminUser, ensureDefaultOccasions } from "@/lib/guard";
 
 type AuthState = { error?: string; ok?: boolean; inviteUrl?: string } | null;
+
+class InviteError extends Error {}
 
 function normalizeEmail(value: FormDataEntryValue | null) {
   return String(value ?? "").trim().toLowerCase();
@@ -39,11 +42,29 @@ function sessionFromUser(user: {
 }
 
 async function originFromRequest() {
+  if (process.env.APP_ORIGIN) {
+    return process.env.APP_ORIGIN.replace(/\/$/, "");
+  }
   const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
   const proto = headerList.get("x-forwarded-proto") ?? "http";
   if (!host) return "";
   return `${proto}://${host}`;
+}
+
+/**
+ * Bootstrap admin limité au seul login du compte admin : aucun coût pour
+ * les autres utilisateurs, et l'admin se répare tout seul si le boot a
+ * échoué. La rotation de ADMIN_PASSWORD est appliquée à ce moment-là.
+ */
+async function ensureAdminIfRelevant(email: string) {
+  const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  if (!adminEmail || email !== adminEmail) return;
+  try {
+    await ensureAdminUser();
+  } catch (error) {
+    console.error("ensureAdminUser", error);
+  }
 }
 
 async function acceptInvitationForUser(params: {
@@ -76,20 +97,57 @@ async function acceptInvitationForUser(params: {
 
   const role = complementaryRole(invitation.inviter.role);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({
-      where: { id: params.user.id },
-      data: { partnerId: invitation.inviterId, role }
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Revendication atomique de l'invitation : un double envoi ou deux
+      // onglets ne peuvent pas accepter deux fois.
+      const claimed = await tx.invitation.updateMany({
+        where: { id: invitation.id, status: "PENDING" },
+        data: { status: "ACCEPTED", acceptedAt: new Date() }
+      });
+      if (claimed.count === 0) {
+        throw new InviteError("Cette invitation n'est plus valable.");
+      }
+
+      const [meFresh, inviterFresh] = await Promise.all([
+        tx.user.findUnique({
+          where: { id: params.user.id },
+          select: { partnerId: true }
+        }),
+        tx.user.findUnique({
+          where: { id: invitation.inviterId },
+          select: { partnerId: true }
+        })
+      ]);
+      if (!meFresh || !inviterFresh) {
+        throw new InviteError("Compte introuvable.");
+      }
+      if (meFresh.partnerId || inviterFresh.partnerId) {
+        throw new InviteError("L'un des deux comptes est déjà lié.");
+      }
+
+      // La prise du partnerId de l'inviter est conditionnelle : si un lien
+      // concurrent s'est établi entre-temps, updateMany ne matche plus et
+      // la transaction avorte au lieu d'écraser le lien existant.
+      const inviterLinked = await tx.user.updateMany({
+        where: { id: invitation.inviterId, partnerId: null },
+        data: { partnerId: params.user.id }
+      });
+      if (inviterLinked.count === 0) {
+        throw new InviteError("L'un des deux comptes est déjà lié.");
+      }
+      await tx.user.update({
+        where: { id: params.user.id },
+        data: { partnerId: invitation.inviterId, role }
+      });
     });
-    await tx.user.update({
-      where: { id: invitation.inviterId },
-      data: { partnerId: params.user.id }
-    });
-    await tx.invitation.update({
-      where: { id: invitation.id },
-      data: { status: "ACCEPTED", acceptedAt: new Date() }
-    });
-  });
+  } catch (error) {
+    if (error instanceof InviteError) {
+      return { error: error.message };
+    }
+    console.error("acceptInvitation", error);
+    return { error: "Impossible de lier les comptes. Réessaie." };
+  }
 
   const recipientId = role === "RECIPIENT" ? params.user.id : invitation.inviterId;
   await ensureDefaultOccasions(recipientId);
@@ -107,13 +165,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     return { error: "La base n'est pas encore connectée." };
   }
 
-  try {
-    await ensureAdminUser();
-  } catch {
-    /* L'admin se crée plus tard ; ne bloque pas l'inscription. */
-  }
-
-  const name = String(formData.get("name") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim().slice(0, 60);
   const email = normalizeEmail(formData.get("email"));
   const password = String(formData.get("password") ?? "");
   const inviteToken = String(formData.get("inviteToken") ?? "").trim();
@@ -127,6 +179,15 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   }
   if (password.length < 8) {
     return { error: "Le mot de passe doit contenir au moins 8 caractères." };
+  }
+
+  const rateLimited = checkRateLimit({
+    key: `signup:${email}`,
+    limit: 8,
+    windowMs: 60 * 60 * 1000
+  });
+  if (!rateLimited.allowed) {
+    return { error: "Trop de tentatives. Réessaie dans une heure." };
   }
 
   let existing;
@@ -167,6 +228,14 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
     let user;
     try {
       user = await prisma.$transaction(async (tx) => {
+        const claimed = await tx.invitation.updateMany({
+          where: { id: invitation.id, status: "PENDING" },
+          data: { status: "ACCEPTED", acceptedAt: new Date() }
+        });
+        if (claimed.count === 0) {
+          throw new InviteError("Cette invitation n'est plus valable.");
+        }
+
         const created = await tx.user.create({
           data: {
             name,
@@ -177,19 +246,21 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
           }
         });
 
-        await tx.user.update({
-          where: { id: invitation.inviterId },
+        const inviterLinked = await tx.user.updateMany({
+          where: { id: invitation.inviterId, partnerId: null },
           data: { partnerId: created.id }
         });
-
-        await tx.invitation.update({
-          where: { id: invitation.id },
-          data: { status: "ACCEPTED", acceptedAt: new Date() }
-        });
+        if (inviterLinked.count === 0) {
+          throw new InviteError("Ce compte est déjà lié à quelqu'un d'autre.");
+        }
 
         return created;
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof InviteError) {
+        return { error: error.message };
+      }
+      console.error("signUp invite", error);
       return { error: "Impossible de rejoindre l'espace. Réessaie." };
     }
 
@@ -230,12 +301,6 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
     return { error: "La base n'est pas encore connectée." };
   }
 
-  try {
-    await ensureAdminUser();
-  } catch {
-    /* ignore */
-  }
-
   const email = normalizeEmail(formData.get("email"));
   const password = String(formData.get("password") ?? "");
   const inviteToken = String(formData.get("inviteToken") ?? "").trim();
@@ -243,6 +308,18 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   if (!email || !password) {
     return { error: "Indique ton e-mail et ton mot de passe." };
   }
+
+  const rateLimited = checkRateLimit({
+    key: `signin:${email}`,
+    limit: 10,
+    windowMs: 10 * 60 * 1000
+  });
+  if (!rateLimited.allowed) {
+    const minutes = Math.max(1, Math.ceil(rateLimited.retryAfterSeconds / 60));
+    return { error: `Trop de tentatives. Réessaie dans ${minutes} min.` };
+  }
+
+  await ensureAdminIfRelevant(email);
 
   let user;
   try {
@@ -379,6 +456,8 @@ export async function createInvitation(
 }
 
 export async function cancelInvitation(formData: FormData) {
+  if (!hasDatabase()) return;
+
   const session = await getSession();
   if (!session) redirect("/connexion");
 

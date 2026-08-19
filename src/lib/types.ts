@@ -50,7 +50,6 @@ export type PreferenceSummary = {
 
 export type DashboardData = {
   recipientName: string;
-  currentRole: AppRole;
   activeWishes: WishSummary[];
   reservedWishes: WishSummary[];
   giftedWishes: WishSummary[];

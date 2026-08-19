@@ -36,42 +36,49 @@ function mapWish(wish: {
   };
 }
 
+function emptyDashboard(): DashboardData {
+  return {
+    recipientName: "",
+    activeWishes: [],
+    reservedWishes: [],
+    giftedWishes: [],
+    occasions: [],
+    preferences: null
+  };
+}
+
+/**
+ * Les erreurs de lecture remontent volontairement : un dashboard vide
+ * affiché pendant une panne ferait croire que les envies ont disparu.
+ * La page d'erreur Next prend le relais.
+ */
 export async function getDashboardData(recipientId: string): Promise<DashboardData> {
   if (!hasDatabase()) {
-    return {
-      recipientName: "",
-      currentRole: "RECIPIENT",
-      activeWishes: [],
-      reservedWishes: [],
-      giftedWishes: [],
-      occasions: [],
-      preferences: null
-    };
+    return emptyDashboard();
   }
 
-  try {
-    const recipient = await prisma.user.findUnique({
-      where: { id: recipientId },
-      include: {
-        profile: true,
-        wishes: {
-          include: {
-            occasion: true,
-            reservedBy: { select: { name: true } },
-            giftHistory: true
-          },
-          orderBy: [{ status: "asc" }, { createdAt: "desc" }]
-        }
+  const recipient = await prisma.user.findUnique({
+    where: { id: recipientId },
+    include: {
+      profile: true,
+      wishes: {
+        include: {
+          occasion: true,
+          reservedBy: { select: { name: true } },
+          giftHistory: true
+        },
+        orderBy: [{ status: "asc" }, { createdAt: "desc" }]
       }
-    });
+    }
+  });
 
-    const occasions = await prisma.occasion.findMany({
-      where: { ownerId: recipientId },
-      include: {
-        _count: { select: { wishes: true } }
-      },
-      orderBy: [{ eventDate: "asc" }, { name: "asc" }]
-    });
+  const occasions = await prisma.occasion.findMany({
+    where: { ownerId: recipientId },
+    include: {
+      _count: { select: { wishes: true } }
+    },
+    orderBy: [{ eventDate: "asc" }, { name: "asc" }]
+  });
 
   const preferences: PreferenceSummary | null = recipient?.profile
     ? {
@@ -94,25 +101,12 @@ export async function getDashboardData(recipientId: string): Promise<DashboardDa
 
   const mapped = (recipient?.wishes ?? []).map(mapWish);
 
-    return {
-      recipientName: recipient?.name ?? "",
-      currentRole: "RECIPIENT",
-      activeWishes: mapped.filter((wish) => wish.status === "ACTIVE"),
-      reservedWishes: mapped.filter((wish) => wish.status === "RESERVED"),
-      giftedWishes: mapped.filter((wish) => wish.status === "GIFTED"),
-      occasions: occasionSummaries,
-      preferences
-    };
-  } catch (error) {
-    console.error("getDashboardData", error);
-    return {
-      recipientName: "",
-      currentRole: "RECIPIENT",
-      activeWishes: [],
-      reservedWishes: [],
-      giftedWishes: [],
-      occasions: [],
-      preferences: null
-    };
-  }
+  return {
+    recipientName: recipient?.name ?? "",
+    activeWishes: mapped.filter((wish) => wish.status === "ACTIVE"),
+    reservedWishes: mapped.filter((wish) => wish.status === "RESERVED"),
+    giftedWishes: mapped.filter((wish) => wish.status === "GIFTED"),
+    occasions: occasionSummaries,
+    preferences
+  };
 }

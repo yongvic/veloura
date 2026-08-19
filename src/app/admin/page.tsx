@@ -1,11 +1,11 @@
-import { adminDeleteUser, adminUnlinkCouple } from "@/app/admin-actions";
 import { signOut } from "@/app/auth-actions";
+import { AdminUserActions } from "@/components/admin-user-actions";
 import { BrandMark } from "@/components/brand-mark";
 import { IconLogOut } from "@/components/icons";
+import { LocalDate } from "@/components/local-date";
 import { StatusPill } from "@/components/status-pill";
 import { requireAdmin } from "@/lib/guard";
 import { prisma } from "@/lib/prisma";
-import { formatShortDate } from "@/lib/format";
 
 export default async function AdminPage() {
   const session = await requireAdmin();
@@ -97,25 +97,14 @@ export default async function AdminPage() {
                   </td>
                   <td>{user.partner ? `${user.partner.name}` : "—"}</td>
                   <td>{user._count.wishes}</td>
-                  <td>{formatShortDate(user.createdAt)}</td>
+                  <td><LocalDate value={user.createdAt} /></td>
                   <td className="admin-row-actions">
                     {user.role !== "ADMIN" ? (
-                      <>
-                        {user.partnerId ? (
-                          <form action={adminUnlinkCouple}>
-                            <input type="hidden" name="userId" value={user.id} />
-                            <button type="submit" className="btn-ghost">
-                              Délier
-                            </button>
-                          </form>
-                        ) : null}
-                        <form action={adminDeleteUser}>
-                          <input type="hidden" name="userId" value={user.id} />
-                          <button type="submit" className="btn-danger btn-secondary--sm">
-                            Supprimer
-                          </button>
-                        </form>
-                      </>
+                      <AdminUserActions
+                        userId={user.id}
+                        userName={user.name}
+                        hasPartner={Boolean(user.partnerId)}
+                      />
                     ) : null}
                   </td>
                 </tr>
