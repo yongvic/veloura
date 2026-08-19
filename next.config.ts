@@ -28,8 +28,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
-      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
-      { protocol: "https", hostname: "*.blob.vercel-storage.com" }
+      // Vercel Blob: le storeId est le sous-domaine exact (ex: tiyndyhu…)
+      // Next.js accepte "**" pour matcher n'importe quel sous-domaine
+      { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
+      { protocol: "https", hostname: "**.blob.vercel-storage.com" }
     ]
   },
   async headers() {
