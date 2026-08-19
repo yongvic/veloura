@@ -376,33 +376,35 @@ export function WishComposerModal({
                     <IconX size={16} /> Changer de photo
                   </button>
                 </div>
-              ) : (
-                <div className="photo-dropzone">
-                  <input
-                    ref={fileInputRef}
-                    name="photo"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    className="photo-file-input"
-                    disabled={pending || isCompressing}
-                    onChange={handlePhotoChange}
-                  />
-                  <div className="photo-dropzone-content">
-                    <div className="photo-upload-icon">
-                      <IconPlus size={20} />
-                    </div>
-                    <div>
-                      <p className="photo-upload-main">
-                        <strong>
-                          {isCompressing ? "Optimisation de l'image..." : "Choisis une photo"}
-                        </strong>{" "}
-                        depuis l’appareil
-                      </p>
-                      <p className="photo-upload-hint">JPG, PNG, WEBP ou GIF</p>
-                    </div>
+              ) : null}
+
+              {/* La zone reste montée même quand l'aperçu s'affiche : démonter
+                  l'input retirerait le fichier du formulaire à la soumission. */}
+              <div className="photo-dropzone" hidden={Boolean(photoPreview)}>
+                <input
+                  ref={fileInputRef}
+                  name="photo"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="photo-file-input"
+                  disabled={pending || isCompressing}
+                  onChange={handlePhotoChange}
+                />
+                <div className="photo-dropzone-content">
+                  <div className="photo-upload-icon">
+                    <IconPlus size={20} />
+                  </div>
+                  <div>
+                    <p className="photo-upload-main">
+                      <strong>
+                        {isCompressing ? "Optimisation de l'image..." : "Choisis une photo"}
+                      </strong>{" "}
+                      depuis l’appareil
+                    </p>
+                    <p className="photo-upload-hint">JPG, PNG, WEBP ou GIF</p>
                   </div>
                 </div>
-              )}
+              </div>
               {photoError ? (
                 <p className="form-error-banner" role="alert">
                   <span>{photoError}</span>

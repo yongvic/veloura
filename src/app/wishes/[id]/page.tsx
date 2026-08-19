@@ -16,9 +16,10 @@ import {
 import { LocalDate } from "@/components/local-date";
 import { SectionHeading } from "@/components/section-heading";
 import { StatusPill } from "@/components/status-pill";
-import { WishCard, priorityConfig } from "@/components/wish-card";
+import { WishCard } from "@/components/wish-card";
 import { getCoupleDashboard } from "@/lib/dashboard";
 import { formatPriceFcfa } from "@/lib/format";
+import { priorityConfig } from "@/lib/wish-display";
 
 export default async function WishDetailPage({
   params

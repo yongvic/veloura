@@ -2386,6 +2386,10 @@ h6 {
   transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out);
 }
 
+.photo-dropzone[hidden] {
+  display: none;
+}
+
 .photo-dropzone:hover {
   border-color: var(--primary);
   background: color-mix(in oklab, var(--primary-soft) 40%, white);

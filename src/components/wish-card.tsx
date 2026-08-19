@@ -23,26 +23,8 @@ import { StatusPill } from "@/components/status-pill";
 import { WishComposerModal } from "@/components/wish-composer-modal";
 import { useModalA11y } from "@/components/use-modal-a11y";
 import { formatPriceFcfa } from "@/lib/format";
-import type { OccasionSummary, WishPriority, WishSummary } from "@/lib/types";
-
-export const priorityConfig: Record<
-  WishPriority,
-  { label: string; tone: "primary" | "accent" | "gold" | "muted"; icon: string }
-> = {
-  MUST_HAVE: { label: "Indispensable", tone: "accent", icon: "★" },
-  WOULD_LOVE: { label: "Coup de cœur", tone: "primary", icon: "♥" },
-  LUXURY: { label: "Luxe & Rêve", tone: "gold", icon: "✦" },
-  MAYBE_LATER: { label: "Plus tard", tone: "muted", icon: "•" }
-};
-
-export const reactionOptions = [
-  "A adoré !",
-  "Émue aux larmes",
-  "Grand coup de cœur",
-  "Porté/utilisé tout de suite",
-  "Très heureuse",
-  "Un souvenir inoubliable"
-];
+import { priorityConfig, reactionOptions } from "@/lib/wish-display";
+import type { OccasionSummary, WishSummary } from "@/lib/types";
 
 type ActionResult = { error?: string; ok?: boolean } | undefined;
 type WishAction = (formData: FormData) => Promise<ActionResult>;
