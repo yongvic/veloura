@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Sans } from "next/font/google";
 import type { ReactNode } from "react";
-import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { PwaRegister } from "@/components/pwa-register";
 
 import "@/app/globals.css";
@@ -61,7 +60,6 @@ export default function RootLayout({
         </a>
         {children}
         <PwaRegister />
-        <PwaInstallPrompt />
       </body>
     </html>
   );

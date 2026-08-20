@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signUp } from "@/app/auth-actions";
 import { BrandMark } from "@/components/brand-mark";
 import { IconGift, IconHeart } from "@/components/icons";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 
 export function InscriptionForm({
   invitation
@@ -130,6 +131,8 @@ export function InscriptionForm({
             <button type="submit" className="btn-primary w-full" disabled={pending}>
               {pending ? "Création..." : invitation ? "Rejoindre" : "Créer mon compte"}
             </button>
+
+            <PwaInstallButton className="btn-secondary w-full" label="Installer l'application" />
           </form>
         </>
       )}

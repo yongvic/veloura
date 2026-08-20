@@ -3372,98 +3372,29 @@ h6 {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Invitation d'installation PWA
+   Bouton d'installation PWA
    ──────────────────────────────────────────────────────────── */
 
-.pwa-install {
-  position: fixed;
-  left: max(0.85rem, env(safe-area-inset-left));
-  right: max(0.85rem, env(safe-area-inset-right));
-  bottom: max(0.85rem, env(safe-area-inset-bottom));
-  z-index: 80;
+.pwa-install-btn {
+  gap: 0.4rem;
+}
+
+.pwa-install-steps {
+  margin: 0;
+  padding-left: 1.2rem;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 0.75rem;
-  padding: 0.9rem 0.95rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid color-mix(in oklab, var(--gold, #d4af37) 35%, var(--line));
-  background:
-    linear-gradient(160deg, color-mix(in oklab, var(--primary-dark) 92%, black), var(--primary-dark)),
-    var(--primary-dark);
-  color: #f8efe8;
-  box-shadow: 0 16px 40px color-mix(in oklab, #15030d 45%, transparent);
-  animation: pwa-install-in 280ms var(--ease-out, ease-out);
-}
-
-@keyframes pwa-install-in {
-  from {
-    opacity: 0;
-    transform: translateY(0.75rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.pwa-install__icon {
-  flex: 0 0 auto;
-  width: 2.25rem;
-  height: 2.25rem;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-full);
-  background: color-mix(in oklab, #d4af37 22%, transparent);
-  color: #f5e2a8;
-}
-
-.pwa-install__copy {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.pwa-install__title {
-  display: block;
-  font-size: 0.95rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-}
-
-.pwa-install__text {
-  margin: 0.25rem 0 0;
-  font-size: 0.82rem;
+  color: var(--ink-secondary);
   line-height: 1.45;
-  color: color-mix(in oklab, #f8efe8 78%, transparent);
 }
 
-.pwa-install__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex: 0 0 auto;
-}
-
-.pwa-install__close {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: color-mix(in oklab, #f8efe8 70%, transparent);
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--radius-full);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-}
-
-.pwa-install__close:hover {
-  background: color-mix(in oklab, white 10%, transparent);
-  color: #fff;
+.pwa-install-steps strong {
+  color: var(--ink);
 }
 
 @media (max-width: 720px) {
-  .pwa-install {
-    /* Remonte au-dessus de la navigation mobile / FAB */
-    bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  .topbar__actions .pwa-install-btn span {
+    display: none;
   }
 }

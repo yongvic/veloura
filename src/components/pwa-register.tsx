@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
+import { startPwaInstallCapture } from "@/lib/pwa-install";
 
 /**
- * Enregistre le service worker Veloura en production uniquement.
- * updateViaCache: 'none' force le navigateur à revalider sw.js à chaque visite.
+ * Enregistre le service worker Veloura en production et capture
+ * l'événement d'installation dès le chargement de la page.
  */
 export function PwaRegister() {
   useEffect(() => {
+    startPwaInstallCapture();
+
     if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator)) return;
 

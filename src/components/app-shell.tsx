@@ -16,6 +16,7 @@ import {
   IconUser
 } from "@/components/icons";
 import { WishComposerModal } from "@/components/wish-composer-modal";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import type { AppRole, OccasionSummary } from "@/lib/types";
 
 const navigationLinks = [
@@ -80,6 +81,7 @@ export function AppShell({
         </nav>
 
         <div className="topbar__actions">
+          <PwaInstallButton className="btn-secondary btn-secondary--sm header-cta-btn pwa-install-btn" />
           {canManage ? (
             <button
               type="button"
