@@ -3372,11 +3372,110 @@ h6 {
 }
 
 /* ────────────────────────────────────────────────────────────
-   Bouton d'installation PWA
+   Bulle flottante d'installation PWA
    ──────────────────────────────────────────────────────────── */
 
-.pwa-install-btn {
-  gap: 0.4rem;
+.pwa-bubble {
+  position: fixed;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 70;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.15rem;
+  max-width: min(18.5rem, calc(100vw - 2rem));
+  padding: 0.35rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, #d4af37 40%, transparent);
+  background:
+    linear-gradient(145deg, color-mix(in oklab, var(--primary) 88%, white), var(--primary-dark));
+  box-shadow:
+    0 12px 32px color-mix(in oklab, #15030d 42%, transparent),
+    0 0 0 1px color-mix(in oklab, white 8%, transparent) inset;
+  animation: pwa-bubble-in 320ms var(--ease-out, ease-out);
+}
+
+@keyframes pwa-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.85rem) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pwa-bubble__main {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #f8efe8;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0.85rem 0.45rem 0.45rem;
+  border-radius: 999px;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+
+.pwa-bubble__main:disabled {
+  opacity: 0.75;
+  cursor: wait;
+}
+
+.pwa-bubble__icon {
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in oklab, #d4af37 28%, transparent);
+  color: #f7e7b0;
+}
+
+.pwa-bubble__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.pwa-bubble__copy strong {
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.pwa-bubble__copy small {
+  font-size: 0.72rem;
+  color: color-mix(in oklab, #f8efe8 72%, transparent);
+  line-height: 1.2;
+}
+
+.pwa-bubble__close {
+  appearance: none;
+  border: 0;
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-top: 0.2rem;
+  margin-right: 0.15rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, white 10%, transparent);
+  color: color-mix(in oklab, #f8efe8 80%, transparent);
+  cursor: pointer;
+}
+
+.pwa-bubble__close:hover {
+  background: color-mix(in oklab, white 18%, transparent);
+  color: #fff;
 }
 
 .pwa-install-steps {
@@ -3394,7 +3493,8 @@ h6 {
 }
 
 @media (max-width: 720px) {
-  .topbar__actions .pwa-install-btn span {
-    display: none;
+  .pwa-bubble {
+    /* Au-dessus de la barre de navigation mobile */
+    bottom: calc(5rem + env(safe-area-inset-bottom));
   }
 }

@@ -4,7 +4,6 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { signIn } from "@/app/auth-actions";
 import { BrandMark } from "@/components/brand-mark";
-import { PwaInstallButton } from "@/components/pwa-install-button";
 
 export function ConnexionForm({
   invitation
@@ -69,8 +68,6 @@ export function ConnexionForm({
         <button type="submit" className="btn-primary w-full" disabled={pending}>
           {pending ? "Connexion..." : invitation ? "Se connecter et rejoindre" : "Se connecter"}
         </button>
-
-        <PwaInstallButton className="btn-secondary w-full" label="Installer l'application" />
       </form>
 
       <p className="auth-switch">

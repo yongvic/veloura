@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Instrument_Sans } from "next/font/google";
 import type { ReactNode } from "react";
+import { PwaInstallBubble } from "@/components/pwa-install-bubble";
 import { PwaRegister } from "@/components/pwa-register";
 
 import "@/app/globals.css";
@@ -60,6 +61,7 @@ export default function RootLayout({
         </a>
         {children}
         <PwaRegister />
+        <PwaInstallBubble />
       </body>
     </html>
   );
